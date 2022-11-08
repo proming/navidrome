@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -59,8 +60,8 @@ func (s mediaFileMapper) toMediaFile(md metadata.Tags) model.MediaFile {
 	mf.SortAlbumArtistName = md.SortAlbumArtist()
 	mf.OrderTitle = strings.TrimSpace(sanitize.Accents(mf.Title))
 	mf.OrderAlbumName = sanitizeFieldForSorting(mf.Album)
-	mf.OrderArtistName = sanitizeFieldForSorting(mf.Artist)
-	mf.OrderAlbumArtistName = sanitizeFieldForSorting(mf.AlbumArtist)
+	mf.OrderArtistName = sanitizeFieldForSorting(utils.SplitAndJoinStrings(mf.Artist))
+	mf.OrderAlbumArtistName = sanitizeFieldForSorting(utils.SplitAndJoinStrings(mf.AlbumArtist))
 	mf.CatalogNum = md.CatalogNum()
 	mf.MbzTrackID = md.MbzTrackID()
 	mf.MbzReleaseTrackID = md.MbzReleaseTrackID()
@@ -93,23 +94,36 @@ func (s mediaFileMapper) mapTrackTitle(md metadata.Tags) string {
 }
 
 func (s mediaFileMapper) mapAlbumArtistName(md metadata.Tags) string {
+	var albumArtistName string
 	switch {
 	case md.AlbumArtist() != "":
-		return md.AlbumArtist()
+		albumArtistName = md.AlbumArtist()
 	case md.Compilation():
-		return consts.VariousArtists
+		albumArtistName = consts.VariousArtists
 	case md.Artist() != "":
-		return md.Artist()
+		albumArtistName = md.Artist()
 	default:
-		return consts.UnknownArtist
+		albumArtistName = consts.UnknownArtist
 	}
+
+	re := regexp.MustCompile(conf.Server.ArtistsSeparator)
+	albumArtistName = re.ReplaceAllString(albumArtistName, "/")
+
+	return albumArtistName
 }
 
 func (s mediaFileMapper) mapArtistName(md metadata.Tags) string {
+	var artistName string
 	if md.Artist() != "" {
-		return md.Artist()
+		artistName = md.Artist()
+	} else {
+		artistName = consts.UnknownArtist
 	}
-	return consts.UnknownArtist
+
+	re := regexp.MustCompile(conf.Server.ArtistsSeparator)
+	artistName = re.ReplaceAllString(artistName, "/")
+
+	return artistName
 }
 
 func (s mediaFileMapper) mapAlbumName(md metadata.Tags) string {
@@ -130,11 +144,29 @@ func (s mediaFileMapper) albumID(md metadata.Tags) string {
 }
 
 func (s mediaFileMapper) artistID(md metadata.Tags) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(strings.ToLower(s.mapArtistName(md)))))
+	// deal with multi artist
+	// modify by @longming
+	re := regexp.MustCompile(conf.Server.ArtistsSeparator)
+	ids := re.Split(s.mapArtistName(md), -1)
+	var idMd5Array []string
+	for i := range ids {
+		idMd5Array = append(idMd5Array, fmt.Sprintf("%x", md5.Sum([]byte(strings.ToLower(strings.Trim(ids[i], " "))))))
+	}
+	return strings.Join(idMd5Array, "/")
+	// return fmt.Sprintf("%x", md5.Sum([]byte(strings.ToLower(s.mapArtistName(md)))))
 }
 
 func (s mediaFileMapper) albumArtistID(md metadata.Tags) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(strings.ToLower(s.mapAlbumArtistName(md)))))
+	// deal with multi artist
+	// modify by @longming
+	re := regexp.MustCompile(conf.Server.ArtistsSeparator)
+	ids := re.Split(s.mapAlbumArtistName(md), -1)
+	var idMd5Array []string
+	for i := range ids {
+		idMd5Array = append(idMd5Array, fmt.Sprintf("%x", md5.Sum([]byte(strings.ToLower(strings.Trim(ids[i], " "))))))
+	}
+	return strings.Join(idMd5Array, "/")
+	//return fmt.Sprintf("%x", md5.Sum([]byte(strings.ToLower(s.mapAlbumArtistName(md)))))
 }
 
 func (s mediaFileMapper) mapGenres(genres []string) (string, model.Genres) {

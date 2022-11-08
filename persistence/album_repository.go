@@ -78,7 +78,7 @@ func yearFilter(field string, value interface{}) Sqlizer {
 }
 
 func artistFilter(field string, value interface{}) Sqlizer {
-	return Like{"all_artist_ids": fmt.Sprintf("%%%s%%", value)}
+	return Like{"album_artist_id": fmt.Sprintf("%%%s%%", value)}
 }
 
 func (r *albumRepository) CountAll(options ...model.QueryOptions) (int64, error) {
@@ -176,6 +176,7 @@ type refreshAlbum struct {
 }
 
 func (r *albumRepository) refresh(ids ...string) error {
+	start := time.Now()
 	stringListIds := "('" + strings.Join(ids, "','") + "')"
 	var albums []refreshAlbum
 	sel := Select(`f.album_id as id, f.album as name, f.artist, f.album_artist, f.artist_id, f.album_artist_id, 
@@ -205,7 +206,7 @@ func (r *albumRepository) refresh(ids ...string) error {
 		LeftJoin(`(select mf.album_id, group_concat(genre_id, ' ') as genre_ids from media_file_genres
 			left join media_file mf on mf.id = media_file_id where mf.album_id in ` +
 			stringListIds + ` group by mf.album_id) mfg on mfg.album_id = f.album_id`).
-		Where(Eq{"f.album_id": ids}).GroupBy("f.album_id")
+		Where(Eq{"f.album_id": ids, "f.visible": "T"}).GroupBy("f.album_id")
 	err := r.queryAll(sel, &albums)
 	if err != nil {
 		return err
@@ -243,9 +244,9 @@ func (r *albumRepository) refresh(ids ...string) error {
 		} else {
 			toInsert++
 		}
-		al.AllArtistIDs = utils.SanitizeStrings(al.SongArtistIds, al.AlbumArtistID, al.ArtistID)
-		al.FullText = getFullText(al.Name, al.Artist, al.AlbumArtist, al.SongArtists,
-			al.SortAlbumName, al.SortArtistName, al.SortAlbumArtistName, al.DiscSubtitles)
+		al.AllArtistIDs = utils.SanitizeStrings(strings.ReplaceAll(al.SongArtistIds, "/", " "), strings.ReplaceAll(al.AlbumArtistID, "/", " "), strings.ReplaceAll(al.ArtistID, "/", " "))
+		al.FullText = getFullText(al.Name, utils.SplitAndJoinStrings(al.Artist), utils.SplitAndJoinStrings(al.AlbumArtist), utils.SplitAndJoinStrings(al.SongArtists),
+			al.SortAlbumName, utils.SplitAndJoinStrings(al.SortArtistName), utils.SplitAndJoinStrings(al.SortAlbumArtistName), al.DiscSubtitles)
 		al.Genres = getGenres(al.GenreIds)
 		err := r.Put(&al.Album)
 		if err != nil {
@@ -258,6 +259,8 @@ func (r *albumRepository) refresh(ids ...string) error {
 	if toUpdate > 0 {
 		log.Debug(r.ctx, "Updated albums", "totalUpdated", toUpdate)
 	}
+
+	log.Info("Ablum refresh", "elapsedTime", time.Since(start))
 	return err
 }
 
@@ -349,7 +352,7 @@ func getCoverFromPath(mediaPath string, embeddedPath string) string {
 }
 
 func (r *albumRepository) purgeEmpty() error {
-	del := Delete(r.tableName).Where("id not in (select distinct(album_id) from media_file)")
+	del := Delete(r.tableName).Where("id not in (select distinct(album_id) from media_file) and id not in (select distinct(album_id) from album_media_file)")
 	c, err := r.executeSQL(del)
 	if err == nil {
 		if c > 0 {

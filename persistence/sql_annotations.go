@@ -22,6 +22,29 @@ func (r sqlRepository) newSelectWithAnnotation(idField string, options ...model.
 		Columns("starred", "starred_at", "play_count", "play_date", "rating")
 }
 
+func (r sqlRepository) newSelectWithAnnotationContainAlbum(idField string, options ...model.QueryOptions) SelectBuilder {
+	sq := Select().From(`
+	(select * from media_file
+	union
+	select mf.id, mf.path, mf.title, a.name as album, mf.artist, mf.artist_id, a.album_artist as album_artist, a.id as album_id, mf.has_cover_art, amf.track_number, 
+	  amf.disc_number, mf.year, mf.size, mf.suffix, mf.duration, mf.bit_rate, mf.genre, mf.compilation, mf.created_at, mf.updated_at, 
+	  mf.full_text, a.album_artist_id as album_artist_id, a.order_album_name, a.order_album_artist_name, mf.order_artist_name, a.sort_album_name, 
+	  mf.sort_artist_name, a.sort_album_artist_name, mf.sort_title, mf.disc_subtitle, mf.mbz_track_id, mf.mbz_album_id, mf.mbz_artist_id, 
+	  mf.mbz_album_artist_id, mf.mbz_album_type, mf.mbz_album_comment, mf.catalog_num, mf.comment, mf.lyrics, mf.bpm, mf.channels, 
+	  mf.order_title, mf.visible, mf.all_artist_ids
+	  from album_media_file amf, album a, media_file mf
+	 where amf.album_id = a.id and amf.media_file_id = mf.id
+	) media_file
+	`)
+	sq = r.applyOptions(sq, options...)
+	sq = r.applyFilters(sq, options...)
+	return sq.LeftJoin("annotation on ("+
+		"annotation.item_id = "+idField+
+		" AND annotation.item_type = '"+r.tableName+"'"+
+		" AND annotation.user_id = '"+userId(r.ctx)+"')").
+		Columns("starred", "starred_at", "play_count", "play_date", "rating")
+}
+
 func (r sqlRepository) annId(itemID ...string) And {
 	return And{
 		Eq{annotationTable + ".user_id": userId(r.ctx)},

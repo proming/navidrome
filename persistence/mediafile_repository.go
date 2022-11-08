@@ -13,6 +13,7 @@ import (
 	"github.com/deluan/rest"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
+	"github.com/navidrome/navidrome/utils"
 )
 
 type mediaFileRepository struct {
@@ -31,15 +32,31 @@ func NewMediaFileRepository(ctx context.Context, o orm.QueryExecutor) *mediaFile
 		"random": "RANDOM()",
 	}
 	r.filterMappings = map[string]filterFunc{
-		"id":      idFilter(r.tableName),
-		"title":   fullTextFilter,
-		"starred": booleanFilter,
+		"id":              idFilter(r.tableName),
+		"title":           fullTextFilter,
+		"starred":         booleanFilter,
+		"album_artist_id": albumArtistFilter,
 	}
 	return r
 }
 
+func albumArtistFilter(field string, value interface{}) Sqlizer {
+	return Like{"all_artist_ids": fmt.Sprintf("%%%s%%", value)}
+}
+
 func (r *mediaFileRepository) CountAll(options ...model.QueryOptions) (int64, error) {
-	sql := r.newSelectWithAnnotation("media_file.id")
+	var sql SelectBuilder
+	if len(options) > 0 && options[0].Filters != nil {
+		s, _, _ := options[0].Filters.ToSql()
+		if strings.Contains(s, "album_id") {
+			sql = r.newSelectWithAnnotationContainAlbum("media_file.id").Where(Eq{"visible": "T"})
+		}
+	}
+
+	if sql == (SelectBuilder{}) {
+		sql = r.newSelectWithAnnotation("media_file.id").Where(Eq{"visible": "T"})
+		// sql := r.newSelectWithAnnotation("media_file.id").Where(Eq{"visible": "T"})
+	}
 	sql = r.withGenres(sql)
 	return r.count(sql, options...)
 }
@@ -49,8 +66,12 @@ func (r *mediaFileRepository) Exists(id string) (bool, error) {
 }
 
 func (r *mediaFileRepository) Put(m *model.MediaFile) error {
-	m.FullText = getFullText(m.Title, m.Album, m.Artist, m.AlbumArtist,
-		m.SortTitle, m.SortAlbumName, m.SortArtistName, m.SortAlbumArtistName, m.DiscSubtitle)
+	m.FullText = getFullText(m.Title, m.Album, utils.SplitAndJoinStrings(m.Artist), utils.SplitAndJoinStrings(m.AlbumArtist),
+		m.SortTitle, m.SortAlbumName, utils.SplitAndJoinStrings(m.SortArtistName), utils.SplitAndJoinStrings(m.SortAlbumArtistName), m.DiscSubtitle)
+	m.AllArtistIDs = utils.SanitizeStrings(strings.ReplaceAll(m.ArtistID, "/", " "), strings.ReplaceAll(m.AlbumArtistID, "/", " "))
+	if len(m.Visible) < 1 {
+		m.Visible = "T"
+	}
 	_, err := r.put(m.ID, m)
 	if err != nil {
 		return err
@@ -59,7 +80,18 @@ func (r *mediaFileRepository) Put(m *model.MediaFile) error {
 }
 
 func (r *mediaFileRepository) selectMediaFile(options ...model.QueryOptions) SelectBuilder {
-	sql := r.newSelectWithAnnotation("media_file.id", options...).Columns("media_file.*")
+	var sql SelectBuilder
+	if len(options) > 0 && options[0].Filters != nil {
+		s, _, _ := options[0].Filters.ToSql()
+		if strings.Contains(s, "album_id") {
+			sql = r.newSelectWithAnnotationContainAlbum("media_file.id", options...).Columns("media_file.*")
+		}
+	}
+
+	if sql == (SelectBuilder{}) {
+		sql = r.newSelectWithAnnotation("media_file.id", options...).Columns("media_file.*")
+	}
+
 	sql = r.withBookmark(sql, "media_file.id")
 	if len(options) > 0 && options[0].Filters != nil {
 		s, _, _ := options[0].Filters.ToSql()
@@ -89,7 +121,7 @@ func (r *mediaFileRepository) Get(id string) (*model.MediaFile, error) {
 }
 
 func (r *mediaFileRepository) GetAll(options ...model.QueryOptions) (model.MediaFiles, error) {
-	sq := r.selectMediaFile(options...)
+	sq := r.selectMediaFile(options...).Where(Eq{"visible": "T"})
 	res := model.MediaFiles{}
 	err := r.queryAll(sq, &res)
 	if err != nil {
@@ -152,8 +184,20 @@ func (r *mediaFileRepository) FindPathsRecursively(basePath string) ([]string, e
 
 func (r *mediaFileRepository) deleteNotInPath(basePath string) error {
 	path := cleanPath(basePath)
+
+	// Set duplicate songs visible
+	upd := Update(r.tableName).Set("visible", "T").Where(`
+			(album_id, title, artist_id) in (select album_id, title, artist_id from media_file where substr(path, 1, length('` + path + `')) <> '` + path + `')
+	`)
+	c, err := r.executeSQL(upd)
+	if err == nil {
+		if c > 0 {
+			log.Debug(r.ctx, "Update duplicate songs visible", "totalUpdated", c)
+		}
+	}
+
 	sel := Delete(r.tableName).Where(NotEq(pathStartsWith(path)))
-	c, err := r.executeSQL(sel)
+	c, err = r.executeSQL(sel)
 	if err == nil {
 		if c > 0 {
 			log.Debug(r.ctx, "Deleted dangling tracks", "totalDeleted", c)
@@ -163,6 +207,16 @@ func (r *mediaFileRepository) deleteNotInPath(basePath string) error {
 }
 
 func (r *mediaFileRepository) Delete(id string) error {
+	// Set duplicate songs visible
+	upd := Update(r.tableName).Set("visible", "T").Where(`
+			(album_id, title, artist_id) in (select album_id, title, artist_id from media_file where id = '` + id + `')
+	`)
+	c, err := r.executeSQL(upd)
+	if err == nil {
+		if c > 0 {
+			log.Debug(r.ctx, "Update duplicate songs visible", "totalUpdated", c)
+		}
+	}
 	return r.delete(Eq{"id": id})
 }
 
@@ -170,6 +224,18 @@ func (r *mediaFileRepository) Delete(id string) error {
 func (r *mediaFileRepository) DeleteByPath(basePath string) (int64, error) {
 	path := cleanPath(basePath)
 	pathLen := utf8.RuneCountInString(path)
+
+	// Set duplicate songs visible
+	upd := Update(r.tableName).Set("visible", "T").Where(`
+			(album_id, title, artist_id) in (select album_id, title, artist_id from media_file where substr(path, 1, length('` + path + `')) = '` + path + `')
+	`)
+	c, err := r.executeSQL(upd)
+	if err == nil {
+		if c > 0 {
+			log.Debug(r.ctx, "Update duplicate songs visible", "totalUpdated", c)
+		}
+	}
+
 	del := Delete(r.tableName).
 		Where(And{pathStartsWith(path),
 			Eq{fmt.Sprintf("substr(path, %d) glob '*%s*'", pathLen+2, string(os.PathSeparator)): 0}})
@@ -178,8 +244,40 @@ func (r *mediaFileRepository) DeleteByPath(basePath string) (int64, error) {
 }
 
 func (r *mediaFileRepository) removeNonAlbumArtistIds() error {
-	upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("id = artist_id")))
+	// upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("id = artist_id")))
+	// upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("all_artist_ids like '%'||artist.id||'%'")))
+	upd := `
+		with media_file_artist as 
+		(WITH RECURSIVE split(seq, art_id, art_id_str, id) AS (
+					SELECT 0, '/', mf.artist_id||'/', mf.id from media_file mf
+					UNION ALL SELECT
+						seq+1,
+						substr(art_id_str, 0, instr(art_id_str, '/')),
+						substr(art_id_str, instr(art_id_str, '/')+1),
+								id
+					FROM split WHERE art_id_str != ''
+				) SELECT split.id, count(a.id) as artist_count FROM split
+				LEFT JOIN artist a on a.id = art_id
+				where seq !=0 
+				GROUP BY split.id)
+		update media_file 
+		set artist = case mfa.artist_count when 0 then '' else media_file.artist end
+		from media_file_artist mfa
+		where mfa.id = media_file.id
+	`
 	log.Debug(r.ctx, "Removing non-album artist_id")
+	_, err := r.executeRawSQL(upd)
+	return err
+}
+
+func (r *mediaFileRepository) ProcessDuplicateSongs() error {
+	upd := Update(r.tableName).Set("visible", "F").Where(`
+			(album_id, title, artist_id) in (
+				select album_id, title, artist_id from media_file where visible='T' group by album_id, title, artist_id having count(*) > 1)
+			and rowid not in (select min(rowid) from media_file where visible='T' group by album_id, title, artist_id having count(*) > 1)
+			and visible='T'
+	`)
+	log.Debug(r.ctx, "Setting duplicate media file unshow")
 	_, err := r.executeSQL(upd)
 	return err
 }

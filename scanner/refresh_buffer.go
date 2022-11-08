@@ -3,6 +3,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
@@ -13,6 +14,7 @@ type refreshBuffer struct {
 	ds     model.DataStore
 	album  map[string]struct{}
 	artist map[string]struct{}
+	ids    map[string]struct{}
 }
 
 func newRefreshBuffer(ctx context.Context, ds model.DataStore) *refreshBuffer {
@@ -21,6 +23,7 @@ func newRefreshBuffer(ctx context.Context, ds model.DataStore) *refreshBuffer {
 		ds:     ds,
 		album:  map[string]struct{}{},
 		artist: map[string]struct{}{},
+		ids:    map[string]struct{}{},
 	}
 }
 
@@ -29,7 +32,23 @@ func (f *refreshBuffer) accumulate(mf model.MediaFile) {
 		f.album[mf.AlbumID] = struct{}{}
 	}
 	if mf.AlbumArtistID != "" {
-		f.artist[mf.AlbumArtistID] = struct{}{}
+		ids := strings.Split(mf.AlbumArtistID, "/")
+		for i := range ids {
+			f.artist[ids[i]] = struct{}{}
+		}
+
+		//f.artist[mf.AlbumArtistID] = struct{}{}
+	}
+	if mf.ArtistID != "" {
+		ids := strings.Split(mf.ArtistID, "/")
+		for i := range ids {
+			f.artist[ids[i]] = struct{}{}
+		}
+
+		//f.artist[mf.ArtistID] = struct{}{}
+	}
+	if mf.ID != "" {
+		f.ids[mf.ID] = struct{}{}
 	}
 }
 
@@ -56,7 +75,7 @@ func (f *refreshBuffer) flush() error {
 	if err != nil {
 		return err
 	}
-	err = f.flushMap(f.artist, "artist", f.ds.Artist(f.ctx).Refresh)
+	err = f.flushMap(f.ids, "artist", f.ds.Artist(f.ctx).Refresh)
 	if err != nil {
 		return err
 	}

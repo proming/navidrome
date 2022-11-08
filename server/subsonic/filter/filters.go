@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Masterminds/squirrel"
@@ -50,8 +51,9 @@ func AlbumsByGenre(genre string) Options {
 
 func AlbumsByArtistID(artistId string) Options {
 	return Options{
-		Sort:    "max_year",
-		Filters: squirrel.Eq{"album_artist_id": artistId},
+		Sort: "max_year",
+		// Filters: squirrel.Eq{"album_artist_id": artistId},
+		Filters: squirrel.Like{"album_artist_id": fmt.Sprintf("%%%s%%", artistId)},
 	}
 }
 

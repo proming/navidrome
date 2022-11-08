@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"regexp"
 	"strings"
 
+	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/consts"
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/model/request"
@@ -157,7 +159,14 @@ func childFromMediaFile(ctx context.Context, mf model.MediaFile) responses.Child
 	if ok && player.ReportRealPath {
 		child.Path = mf.Path
 	} else {
-		child.Path = fakePath(mf)
+		artists := regexp.MustCompile(conf.Server.ArtistsSeparator).Split(mf.AlbumArtist, -1)
+		songDir := ""
+		if len(artists) < 4 {
+			songDir = strings.Join(artists, "_")
+		} else {
+			songDir = strings.Join(artists[0:3], "_")
+		}
+		child.Path = fmt.Sprintf("%s/%s/%s.%s", mapSlashToDash(songDir), mapSlashToDash(mf.Album), mapSlashToDash(mf.Title), mf.Suffix)
 	}
 	child.DiscNumber = mf.DiscNumber
 	child.Created = &mf.CreatedAt

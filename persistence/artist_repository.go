@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	. "github.com/Masterminds/squirrel"
 	"github.com/beego/beego/v2/client/orm"
@@ -61,7 +62,7 @@ func (r *artistRepository) Exists(id string) (bool, error) {
 }
 
 func (r *artistRepository) Put(a *model.Artist) error {
-	a.FullText = getFullText(a.Name, a.SortArtistName)
+	a.FullText = getFullText(a.Name, utils.SplitAndJoinStrings(a.SortArtistName))
 	dba := r.fromModel(a)
 	_, err := r.put(dba.ID, dba)
 	if err != nil {
@@ -188,24 +189,50 @@ func (r *artistRepository) Refresh(ids ...string) error {
 }
 
 func (r *artistRepository) refresh(ids ...string) error {
+	start := time.Now()
 	type refreshArtist struct {
 		model.Artist
 		CurrentId string
 		GenreIds  string
 	}
 	var artists []refreshArtist
-	sel := Select("f.album_artist_id as id", "f.album_artist as name", "count(*) as album_count", "a.id as current_id",
-		"group_concat(f.mbz_album_artist_id , ' ') as mbz_artist_id",
-		"f.sort_album_artist_name as sort_artist_name", "f.order_album_artist_name as order_artist_name",
-		"sum(f.song_count) as song_count", "sum(f.size) as size",
-		"alg.genre_ids").
-		From("album f").
-		LeftJoin("artist a on f.album_artist_id = a.id").
-		LeftJoin(`(select al.album_artist_id, group_concat(ag.genre_id, ' ') as genre_ids from album_genres ag
-				left join album al on al.id = ag.album_id where al.album_artist_id in ('` +
-			strings.Join(ids, "','") + `') group by al.album_artist_id) alg on alg.album_artist_id = f.album_artist_id`).
-		Where(Eq{"f.album_artist_id": ids}).
-		GroupBy("f.album_artist_id").OrderBy("f.id")
+	// sel := Select("f.album_artist_id as id", "f.album_artist as name", "count(*) as album_count", "a.id as current_id",
+	// 	"group_concat(f.mbz_album_artist_id , ' ') as mbz_artist_id",
+	// 	"f.sort_album_artist_name as sort_artist_name", "f.order_album_artist_name as order_artist_name",
+	// 	"sum(f.song_count) as song_count", "sum(f.size) as size",
+	// 	"alg.genre_ids").
+	// 	From("album f").
+	// 	LeftJoin("artist a on f.album_artist_id = a.id").
+	// 	LeftJoin(`(select al.album_artist_id, group_concat(ag.genre_id, ' ') as genre_ids from album_genres ag
+	// 			left join album al on al.id = ag.album_id where al.album_artist_id in ('` +
+	// 		strings.Join(ids, "','") + `') group by al.album_artist_id) alg on alg.album_artist_id = f.album_artist_id`).
+	// 	Where(Eq{"f.album_artist_id": ids}).
+	// 	GroupBy("f.album_artist_id").OrderBy("f.id")
+	sel := Select(`art.art_id as id, trim(art.art_name) as name, count(DISTINCT mf.album_id) as album_count,
+	a.id as current_id, group_concat(mf.mbz_album_artist_id , ' ') as mbz_artist_id,
+	trim(art.art_name) as sort_artist_name, 
+	trim(art.art_name) as order_artist_name,
+	COUNT(*) as song_count, sum(mf.size) as size,
+	group_concat(mfg.genre_id, ' ') as genre_ids
+	FROM media_file mf
+	INNER JOIN (WITH RECURSIVE split(seq, art_name, art_name_str, art_id, art_id_str, id) AS (
+		SELECT 0, '/', mf.artist||'/'||mf.album_artist||'/', '/', 
+				mf.artist_id||'/'||mf.album_artist_id||'/', mf.id from media_file mf where mf.id in ('` + strings.Join(ids, "','") + `')
+		UNION ALL SELECT
+			seq+1,
+			substr(art_name_str, 0, instr(art_name_str, '/')),
+			substr(art_name_str, instr(art_name_str, '/')+1),
+			substr(art_id_str, 0, instr(art_id_str, '/')),
+			substr(art_id_str, instr(art_id_str, '/')+1),
+					id
+		FROM split WHERE art_name_str != ''
+	) SELECT art_name, art_id, split.id FROM split 
+  where seq !=0 
+	group by art_name, art_id, split.id) art on mf.id = art.id
+	LEFT JOIN artist a on art.art_id = a.id
+	LEFT JOIN media_file_genres mfg on mf.id = mfg.media_file_id
+	WHERE mf.id in ('` + strings.Join(ids, "','") + `') and mf.visible = 'T'
+	GROUP BY art_id`)
 	err := r.queryAll(sel, &artists)
 	if err != nil {
 		return err
@@ -232,17 +259,96 @@ func (r *artistRepository) refresh(ids ...string) error {
 	if toUpdate > 0 {
 		log.Debug(r.ctx, "Updated artists", "totalUpdated", toUpdate)
 	}
+
+	log.Info("Artist refresh", "elapsedTime", time.Since(start))
 	return err
 }
 
 func (r *artistRepository) purgeEmpty() error {
-	del := Delete(r.tableName).Where("id not in (select distinct(album_artist_id) from album)")
-	c, err := r.executeSQL(del)
+	// del := Delete(r.tableName).Where("id not in (select distinct(album_artist_id) from album)")
+	// del := Delete(r.tableName).Where(notExists("media_file", ConcatExpr("all_artist_ids like '%'||artist.id||'%'")))
+	del := `
+	with media_file_artist as 
+	(WITH RECURSIVE split(seq, art_id, art_id_str, id) AS (
+		SELECT 0, ' ', mf.all_artist_ids||' ', mf.id from media_file mf
+		UNION ALL SELECT
+			seq+1,
+			substr(art_id_str, 0, instr(art_id_str, ' ')),
+			substr(art_id_str, instr(art_id_str, ' ')+1),
+					id
+		FROM split WHERE art_id_str != ''
+	) SELECT art_id, count(split.id) as media_count FROM split
+	where seq !=0 
+	GROUP BY art_id)
+	delete from artist 
+	where EXISTS(select 1 from media_file_artist mfa where mfa.art_id = artist.id and media_count=0)
+	`
+
+	c, err := r.executeRawSQL(del)
 	if err == nil {
 		if c > 0 {
 			log.Debug(r.ctx, "Purged empty artists", "totalDeleted", c)
 		}
 	}
+	return err
+}
+
+func (r *artistRepository) updateAlbumCount() error {
+	upd := `
+	with artist_album_count as 
+	(WITH RECURSIVE split(seq, art_id, art_id_str, id) AS (
+				SELECT 0, '/', mf.album_artist_id||'/', mf.id from album mf
+				UNION ALL SELECT
+					seq+1,
+					substr(art_id_str, 0, instr(art_id_str, '/')),
+					substr(art_id_str, instr(art_id_str, '/')+1),
+							id
+				FROM split WHERE art_id_str != ''
+			) SELECT art_id, count(split.id) as album_count FROM split 
+			where seq !=0 
+			group by art_id)
+	update artist 
+	set album_count = IFNULL(abc.album_count, 0)
+	from artist_album_count abc
+	where abc.art_id = artist.id
+	`
+	c, err := r.executeRawSQL(upd)
+	if err == nil {
+		if c > 0 {
+			log.Debug(r.ctx, "Update artist album count", "totalUpdated", c)
+		}
+	} else {
+		return err
+	}
+
+	upd = `
+	with artist_song_count as 
+	(WITH RECURSIVE split(seq, art_id, art_id_str, id, size) AS (
+		SELECT 0, ' ', mf.all_artist_ids||' ', mf.id, mf.size from media_file mf
+		UNION ALL SELECT
+				seq+1,
+				substr(art_id_str, 0, instr(art_id_str, ' ')),
+				substr(art_id_str, instr(art_id_str, ' ')+1),
+				id,
+				size
+		FROM split WHERE art_id_str != ''
+		) select art_id, count(id) as song_count, sum(size) as size from (SELECT art_id, id, size FROM split 
+		where seq !=0 
+		GROUP BY art_id, id)
+		GROUP BY art_id
+	)
+	update artist 
+	set song_count = IFNULL(abc.song_count, 0), size=IFNULL(abc.size, 0)
+	from artist_song_count abc
+	where abc.art_id = artist.id
+	`
+	c, err = r.executeRawSQL(upd)
+	if err == nil {
+		if c > 0 {
+			log.Debug(r.ctx, "Update artist song count", "totalUpdated", c)
+		}
+	}
+
 	return err
 }
 

@@ -18,6 +18,7 @@ type MediaFile struct {
 	AlbumArtistID        string    `structs:"album_artist_id" json:"albumArtistId" orm:"pk;column(album_artist_id)"`
 	AlbumArtist          string    `structs:"album_artist" json:"albumArtist"`
 	AlbumID              string    `structs:"album_id" json:"albumId"       orm:"pk;column(album_id)"`
+	AllArtistIDs         string    `structs:"all_artist_ids" json:"allArtistIds"  orm:"column(all_artist_ids)"`
 	HasCoverArt          bool      `structs:"has_cover_art" json:"hasCoverArt"`
 	TrackNumber          int       `structs:"track_number" json:"trackNumber"`
 	DiscNumber           int       `structs:"disc_number" json:"discNumber"`
@@ -53,6 +54,7 @@ type MediaFile struct {
 	MbzAlbumComment      string    `structs:"mbz_album_comment" json:"mbzAlbumComment,omitempty"`
 	CreatedAt            time.Time `structs:"created_at" json:"createdAt"` // Time this entry was created in the DB
 	UpdatedAt            time.Time `structs:"updated_at" json:"updatedAt"` // Time of file last update (mtime)
+	Visible              string    `structs:"visible" json:"visible"`
 }
 
 func (mf *MediaFile) ContentType() string {
@@ -75,6 +77,7 @@ type MediaFileRepository interface {
 	FindByPath(path string) (*MediaFile, error)
 	FindPathsRecursively(basePath string) ([]string, error)
 	DeleteByPath(path string) (int64, error)
+	ProcessDuplicateSongs() error
 
 	AnnotatedRepository
 	BookmarkableRepository

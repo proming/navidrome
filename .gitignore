@@ -23,3 +23,4 @@ navidrome.db-shm
 navidrome.db-wal
 tags
 .gitinfo
+__debug_bin

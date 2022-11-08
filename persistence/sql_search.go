@@ -21,6 +21,10 @@ func (r sqlRepository) doSearch(q string, offset, size int, results interface{},
 	}
 
 	sq := r.newSelectWithAnnotation(r.tableName + ".id").Columns("*")
+	if r.tableName == "media_file" {
+		sq = r.newSelectWithAnnotationContainAlbum(r.tableName + ".id").Columns("*").Where(Eq{"visible": "T"})
+	}
+
 	sq = sq.Limit(uint64(size)).Offset(uint64(offset))
 	if len(orderBys) > 0 {
 		sq = sq.OrderBy(orderBys...)
