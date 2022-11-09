@@ -31,7 +31,7 @@ func (r sqlRepository) newSelectWithAnnotationContainAlbum(idField string, optio
 	  mf.full_text, a.album_artist_id as album_artist_id, a.order_album_name, a.order_album_artist_name, mf.order_artist_name, a.sort_album_name, 
 	  mf.sort_artist_name, a.sort_album_artist_name, mf.sort_title, mf.disc_subtitle, mf.mbz_track_id, mf.mbz_album_id, mf.mbz_artist_id, 
 	  mf.mbz_album_artist_id, mf.mbz_album_type, mf.mbz_album_comment, mf.catalog_num, mf.comment, mf.lyrics, mf.bpm, mf.channels, 
-	  mf.order_title, mf.visible, mf.all_artist_ids
+	  mf.order_title, mf.visible, mf.all_artist_ids, mf.mbz_release_track_id
 	  from album_media_file amf, album a, media_file mf
 	 where amf.album_id = a.id and amf.media_file_id = mf.id
 	) media_file
