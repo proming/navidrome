@@ -52,6 +52,11 @@ export default {
           'linear-gradient(to bottom, rgb(255 255 255 / 51%), rgb(250 250 250))!important',
       },
     },
+    MuiTypography: {
+      body2: {
+        wordBreak: 'break-word',
+      },
+    },
   },
   player: {
     theme: 'light',

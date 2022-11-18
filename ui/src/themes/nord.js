@@ -417,6 +417,11 @@ export default {
         },
       },
     },
+    MuiTypography: {
+      body2: {
+        wordBreak: 'break-word',
+      },
+    },
   },
   player: {
     theme: 'dark',
