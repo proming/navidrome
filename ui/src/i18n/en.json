@@ -322,7 +322,8 @@
             "lastfm": "Open in Last.fm",
             "musicbrainz": "Open in MusicBrainz"
         },
-        "lastfmLink": "Read More..."
+        "lastfmLink": "Read More...",
+        "originalFormat": "Download in original format"
     },
     "menu": {
         "library": "Library",
@@ -393,6 +394,7 @@
             "toggle_play": "Play / Pause",
             "prev_song": "Previous Song",
             "next_song": "Next Song",
+            "current_song": "Go to Current Song",
             "vol_up": "Volume Up",
             "vol_down": "Volume Down",
             "toggle_love": "Add this track to favourites"

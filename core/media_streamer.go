@@ -20,6 +20,7 @@ import (
 
 type MediaStreamer interface {
 	NewStream(ctx context.Context, id string, reqFormat string, reqBitRate int) (*Stream, error)
+	DoStream(ctx context.Context, mf *model.MediaFile, reqFormat string, reqBitRate int) (*Stream, error)
 }
 
 type TranscodingCache cache.FileCache
@@ -51,6 +52,10 @@ func (ms *mediaStreamer) NewStream(ctx context.Context, id string, reqFormat str
 		return nil, err
 	}
 
+	return ms.DoStream(ctx, mf, reqFormat, reqBitRate)
+}
+
+func (ms *mediaStreamer) DoStream(ctx context.Context, mf *model.MediaFile, reqFormat string, reqBitRate int) (*Stream, error) {
 	var format string
 	var bitRate int
 	var cached bool
@@ -142,6 +147,10 @@ func selectTranscodingOptions(ctx context.Context, ds model.DataStore, mf *model
 			if p, ok := request.PlayerFrom(ctx); ok {
 				cBitRate = p.MaxBitRate
 			}
+		} else if reqBitRate > 0 && conf.Server.DefaultDownsamplingFormat != "" {
+			// If no format is specified and no transcoding associated to the player, but a bitrate is specfied, and there is no transcoding set for the player, we use the default downsampling format
+			log.Debug("Default Downsampling", "Using default downsampling format", conf.Server.DefaultDownsamplingFormat)
+			cFormat = conf.Server.DefaultDownsamplingFormat
 		}
 	}
 	if reqBitRate > 0 {
@@ -163,7 +172,7 @@ func selectTranscodingOptions(ctx context.Context, ds model.DataStore, mf *model
 		format = "raw"
 		bitRate = 0
 	}
-	return
+	return format, bitRate
 }
 
 var (

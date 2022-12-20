@@ -113,7 +113,7 @@ func (a *artwork) getImagePath(ctx context.Context, id string) (path string, las
 		return
 	}
 
-	// If it is a mediaFile and it has cover art, return it (if feature is disabled, skip)
+	// If it is a mediaFile, and it has cover art, return it (if feature is disabled, skip)
 	if !conf.Server.DevFastAccessCoverArt && mf.HasCoverArt {
 		return mf.Path, mf.UpdatedAt, nil
 	}
@@ -159,7 +159,7 @@ func (a *artwork) getArtwork(ctx context.Context, id string, path string, size i
 		reader, err = resizeImage(r, size, false)
 	}
 
-	return
+	return reader, err
 }
 
 func resizeImage(reader io.Reader, size int, usePng bool) (io.ReadCloser, error) {

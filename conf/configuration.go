@@ -34,6 +34,7 @@ type configOptions struct {
 	ImageCacheSize          string
 	AutoImportPlaylists     bool
 	PlaylistsPath           string
+	AutoTranscodeDownload   bool
 
 	SearchFullString       bool
 	RecentlyAddedByModTime bool
@@ -67,6 +68,9 @@ type configOptions struct {
 	LastFM       lastfmOptions
 	Spotify      spotifyOptions
 	ListenBrainz listenBrainzOptions
+
+	//test downsampling
+	DefaultDownsamplingFormat string
 
 	// DevFlags. These are used to enable/disable debugging and incomplete features
 	DevLogSourceLine           bool
@@ -226,6 +230,7 @@ func init() {
 	viper.SetDefault("playlistspath", consts.DefaultPlaylistsPath)
 	viper.SetDefault("enabledownloads", true)
 	viper.SetDefault("enableexternalservices", true)
+	viper.SetDefault("autotranscodedownload", false)
 
 	// Config options only valid for file/env configuration
 	viper.SetDefault("searchfullstring", false)
@@ -270,6 +275,8 @@ func init() {
 	viper.SetDefault("spotify.secret", "")
 	viper.SetDefault("listenbrainz.enabled", true)
 	viper.SetDefault("listenbrainz.baseurl", "https://api.listenbrainz.org/1/")
+
+	viper.SetDefault("defaultdownsamplingformat", consts.DefaultDownsamplingFormat)
 
 	// DevFlags. These are used to enable/disable debugging and incomplete features
 	viper.SetDefault("devlogsourceline", false)
