@@ -178,17 +178,6 @@ func (r *artistRepository) GetIndex() (model.ArtistIndexes, error) {
 }
 
 func (r *artistRepository) Refresh(ids ...string) error {
-	chunks := utils.BreakUpStringSlice(ids, 100)
-	for _, chunk := range chunks {
-		err := r.refresh(chunk...)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *artistRepository) refresh(ids ...string) error {
 	start := time.Now()
 	type refreshArtist struct {
 		model.Artist
@@ -248,6 +237,7 @@ func (r *artistRepository) refresh(ids ...string) error {
 		}
 		ar.MbzArtistID = getMostFrequentMbzID(r.ctx, ar.MbzArtistID, r.tableName, ar.Name)
 		ar.Genres = getGenres(ar.GenreIds)
+		ar.ExternalInfoUpdatedAt = time.Time{}
 		err := r.Put(&ar.Artist)
 		if err != nil {
 			return err
