@@ -69,7 +69,7 @@ type configOptions struct {
 	Prometheus                   prometheusOptions
 	ArtistsSeparator             string
 
-	Scanner                      scannerOptions
+	Scanner scannerOptions
 
 	Agents       string
 	LastFM       lastfmOptions
