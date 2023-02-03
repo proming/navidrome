@@ -27,11 +27,9 @@ import {
   DateField,
   ArtistLinkField,
 } from '../common'
-import { AddToPlaylistDialog } from '../dialogs'
 import { AlbumLinkField } from '../song/AlbumLinkField'
 import { playTracks } from '../actions'
 import PlaylistSongBulkActions from './PlaylistSongBulkActions'
-import DownloadMenuDialog from '../dialogs/DownloadMenuDialog'
 import ExpandInfoDialog from '../dialogs/ExpandInfoDialog'
 
 const useStyles = makeStyles(
@@ -97,7 +95,7 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
 
   const onAddToPlaylist = useCallback(
     (pls) => {
-      if (pls.id === playlistId) {
+      if (pls.artID === playlistId) {
         refetch()
       }
     },
@@ -214,8 +212,6 @@ const PlaylistSongs = ({ playlistId, readOnly, actions, ...props }) => {
           </ReorderableList>
         </Card>
       </div>
-      <AddToPlaylistDialog />
-      <DownloadMenuDialog />
       <ExpandInfoDialog content={<SongInfo />} />
       {React.cloneElement(props.pagination, listContext)}
     </>
@@ -228,7 +224,7 @@ const SanitizedPlaylistSongs = (props) => {
     <>
       {loaded && (
         <PlaylistSongs
-          playlistId={props.id}
+          playlistId={props.artID}
           actions={props.actions}
           pagination={props.pagination}
           {...rest}

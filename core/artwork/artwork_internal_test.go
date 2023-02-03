@@ -35,7 +35,7 @@ var _ = Describe("Artwork", func() {
 		alOnlyExternal = model.Album{ID: "444", Name: "Only external", ImageFiles: "tests/fixtures/front.png"}
 		alExternalNotFound = model.Album{ID: "555", Name: "External not found", ImageFiles: "tests/fixtures/NON_EXISTENT.png"}
 		alMultipleCovers = model.Album{ID: "666", Name: "All options", EmbedArtPath: "tests/fixtures/test.mp3",
-			ImageFiles: "tests/fixtures/cover.jpg:tests/fixtures/front.png",
+			ImageFiles: "tests/fixtures/cover.jpg" + consts.Zwsp + "tests/fixtures/front.png",
 		}
 		mfWithEmbed = model.MediaFile{ID: "22", Path: "tests/fixtures/test.mp3", HasCoverArt: true, AlbumID: "222"}
 		mfWithoutEmbed = model.MediaFile{ID: "44", Path: "tests/fixtures/test.ogg", AlbumID: "444"}
@@ -49,7 +49,7 @@ var _ = Describe("Artwork", func() {
 	Describe("albumArtworkReader", func() {
 		Context("ID not found", func() {
 			It("returns ErrNotFound if album is not in the DB", func() {
-				_, err := newAlbumArtworkReader(ctx, aw, model.MustParseArtworkID("al-NOT_FOUND"))
+				_, err := newAlbumArtworkReader(ctx, aw, model.MustParseArtworkID("al-NOT_FOUND"), nil)
 				Expect(err).To(MatchError(model.ErrNotFound))
 			})
 		})
@@ -61,19 +61,18 @@ var _ = Describe("Artwork", func() {
 				})
 			})
 			It("returns embed cover", func() {
-				aw, err := newAlbumArtworkReader(ctx, aw, alOnlyEmbed.CoverArtID())
+				aw, err := newAlbumArtworkReader(ctx, aw, alOnlyEmbed.CoverArtID(), nil)
 				Expect(err).ToNot(HaveOccurred())
 				_, path, err := aw.Reader(ctx)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(path).To(Equal("tests/fixtures/test.mp3"))
 			})
-			It("returns placeholder if embed path is not available", func() {
+			It("returns ErrUnavailable if embed path is not available", func() {
 				ffmpeg.Error = errors.New("not available")
-				aw, err := newAlbumArtworkReader(ctx, aw, alEmbedNotFound.CoverArtID())
+				aw, err := newAlbumArtworkReader(ctx, aw, alEmbedNotFound.CoverArtID(), nil)
 				Expect(err).ToNot(HaveOccurred())
-				_, path, err := aw.Reader(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(path).To(Equal(consts.PlaceholderAlbumArt))
+				_, _, err = aw.Reader(ctx)
+				Expect(err).To(MatchError(ErrUnavailable))
 			})
 		})
 		Context("External images", func() {
@@ -84,18 +83,17 @@ var _ = Describe("Artwork", func() {
 				})
 			})
 			It("returns external cover", func() {
-				aw, err := newAlbumArtworkReader(ctx, aw, alOnlyExternal.CoverArtID())
+				aw, err := newAlbumArtworkReader(ctx, aw, alOnlyExternal.CoverArtID(), nil)
 				Expect(err).ToNot(HaveOccurred())
 				_, path, err := aw.Reader(ctx)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(path).To(Equal("tests/fixtures/front.png"))
 			})
-			It("returns placeholder if external file is not available", func() {
-				aw, err := newAlbumArtworkReader(ctx, aw, alExternalNotFound.CoverArtID())
+			It("returns ErrUnavailable if external file is not available", func() {
+				aw, err := newAlbumArtworkReader(ctx, aw, alExternalNotFound.CoverArtID(), nil)
 				Expect(err).ToNot(HaveOccurred())
-				_, path, err := aw.Reader(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(path).To(Equal(consts.PlaceholderAlbumArt))
+				_, _, err = aw.Reader(ctx)
+				Expect(err).To(MatchError(ErrUnavailable))
 			})
 		})
 		Context("Multiple covers", func() {
@@ -107,7 +105,7 @@ var _ = Describe("Artwork", func() {
 			DescribeTable("CoverArtPriority",
 				func(priority string, expected string) {
 					conf.Server.CoverArtPriority = priority
-					aw, err := newAlbumArtworkReader(ctx, aw, alMultipleCovers.CoverArtID())
+					aw, err := newAlbumArtworkReader(ctx, aw, alMultipleCovers.CoverArtID(), nil)
 					Expect(err).ToNot(HaveOccurred())
 					_, path, err := aw.Reader(ctx)
 					Expect(err).ToNot(HaveOccurred())
@@ -122,7 +120,7 @@ var _ = Describe("Artwork", func() {
 	Describe("mediafileArtworkReader", func() {
 		Context("ID not found", func() {
 			It("returns ErrNotFound if mediafile is not in the DB", func() {
-				_, err := newAlbumArtworkReader(ctx, aw, alMultipleCovers.CoverArtID())
+				_, err := newAlbumArtworkReader(ctx, aw, alMultipleCovers.CoverArtID(), nil)
 				Expect(err).To(MatchError(model.ErrNotFound))
 			})
 		})
@@ -178,7 +176,7 @@ var _ = Describe("Artwork", func() {
 		})
 		It("returns a PNG if original image is a PNG", func() {
 			conf.Server.CoverArtPriority = "front.png"
-			r, _, err := aw.Get(context.Background(), alMultipleCovers.CoverArtID().String(), 15)
+			r, _, err := aw.Get(context.Background(), alMultipleCovers.CoverArtID(), 15)
 			Expect(err).ToNot(HaveOccurred())
 
 			br, format, err := asImageReader(r)
@@ -192,7 +190,7 @@ var _ = Describe("Artwork", func() {
 		})
 		It("returns a JPEG if original image is not a PNG", func() {
 			conf.Server.CoverArtPriority = "cover.jpg"
-			r, _, err := aw.Get(context.Background(), alMultipleCovers.CoverArtID().String(), 200)
+			r, _, err := aw.Get(context.Background(), alMultipleCovers.CoverArtID(), 200)
 			Expect(err).ToNot(HaveOccurred())
 
 			br, format, err := asImageReader(r)

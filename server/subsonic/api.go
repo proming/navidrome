@@ -38,11 +38,12 @@ type Router struct {
 	scanner          scanner.Scanner
 	broker           events.Broker
 	scrobbler        scrobbler.PlayTracker
+	share            core.Share
 }
 
 func New(ds model.DataStore, artwork artwork.Artwork, streamer core.MediaStreamer, archiver core.Archiver,
 	players core.Players, externalMetadata core.ExternalMetadata, scanner scanner.Scanner, broker events.Broker,
-	playlists core.Playlists, scrobbler scrobbler.PlayTracker) *Router {
+	playlists core.Playlists, scrobbler scrobbler.PlayTracker, share core.Share) *Router {
 	r := &Router{
 		ds:               ds,
 		artwork:          artwork,
@@ -54,6 +55,7 @@ func New(ds model.DataStore, artwork artwork.Artwork, streamer core.MediaStreame
 		scanner:          scanner,
 		broker:           broker,
 		scrobbler:        scrobbler,
+		share:            share,
 	}
 	r.Handler = r.routes()
 	return r
@@ -83,6 +85,8 @@ func (api *Router) routes() http.Handler {
 		h(r, "getArtist", api.GetArtist)
 		h(r, "getAlbum", api.GetAlbum)
 		h(r, "getSong", api.GetSong)
+		h(r, "getAlbumInfo", api.GetAlbumInfo)
+		h(r, "getAlbumInfo2", api.GetAlbumInfo)
 		h(r, "getArtistInfo", api.GetArtistInfo)
 		h(r, "getArtistInfo2", api.GetArtistInfo2)
 		h(r, "getTopSongs", api.GetTopSongs)
@@ -142,8 +146,10 @@ func (api *Router) routes() http.Handler {
 	r.Group(func(r chi.Router) {
 		// configure request throttling
 		if conf.Server.DevArtworkMaxRequests > 0 {
-			maxRequests := conf.Server.DevArtworkMaxRequests
-			r.Use(middleware.ThrottleBacklog(maxRequests, conf.Server.DevArtworkThrottleBacklogLimit,
+			log.Debug("Subsonic getCoverArt endpoint will be throttled", "maxRequests", conf.Server.DevArtworkMaxRequests,
+				"backlogLimit", conf.Server.DevArtworkThrottleBacklogLimit, "backlogTimeout",
+				conf.Server.DevArtworkThrottleBacklogTimeout)
+			r.Use(middleware.ThrottleBacklog(conf.Server.DevArtworkMaxRequests, conf.Server.DevArtworkThrottleBacklogLimit,
 				conf.Server.DevArtworkThrottleBacklogTimeout))
 		}
 		hr(r, "getCoverArt", api.GetCoverArt)
@@ -159,11 +165,19 @@ func (api *Router) routes() http.Handler {
 		h(r, "getInternetRadioStations", api.GetInternetRadios)
 		h(r, "updateInternetRadioStation", api.UpdateInternetRadio)
 	})
+	if conf.Server.EnableSharing {
+		r.Group(func(r chi.Router) {
+			h(r, "getShares", api.GetShares)
+			h(r, "createShare", api.CreateShare)
+			h(r, "updateShare", api.UpdateShare)
+			h(r, "deleteShare", api.DeleteShare)
+		})
+	} else {
+		h501(r, "getShares", "createShare", "updateShare", "deleteShare")
+	}
 
 	// Not Implemented (yet?)
 	h501(r, "jukeboxControl")
-	h501(r, "getAlbumInfo", "getAlbumInfo2")
-	h501(r, "getShares", "createShare", "updateShare", "deleteShare")
 	h501(r, "getPodcasts", "getNewestPodcasts", "refreshPodcasts", "createPodcastChannel", "deletePodcastChannel",
 		"deletePodcastEpisode", "downloadPodcastEpisode")
 	h501(r, "createUser", "updateUser", "deleteUser", "changePassword")
