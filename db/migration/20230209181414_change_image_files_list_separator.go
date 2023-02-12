@@ -41,7 +41,7 @@ func upChangeImageFilesListSeparator(tx *sql.Tx) error {
 			imageFilesStr = ""
 		}
 
-		files := upChangeImageFilesListSeparatorDirs(string(imageFilesStr))
+		files := upChangeImageFilesListSeparatorDirs(imageFilesStr)
 		if files == imageFilesStr {
 			continue
 		}
