@@ -37,6 +37,7 @@ type configOptions struct {
 	EnableMediaFileCoverArt      bool
 	TranscodingCacheSize         string
 	ImageCacheSize               string
+	EnableArtworkPrecache        bool
 	AutoImportPlaylists          bool
 	PlaylistsPath                string
 	AutoTranscodeDownload        bool
@@ -46,7 +47,7 @@ type configOptions struct {
 	IgnoredArticles              string
 	IndexGroups                  string
 	SubsonicArtistParticipations bool
-	ProbeCommand                 string
+	FFmpegPath                   string
 	CoverArtPriority             string
 	CoverJpegQuality             int
 	EnableGravatar               bool
@@ -234,6 +235,7 @@ func init() {
 	viper.SetDefault("enabletranscodingconfig", false)
 	viper.SetDefault("transcodingcachesize", "100MB")
 	viper.SetDefault("imagecachesize", "100MB")
+	viper.SetDefault("enableartworkprecache", true)
 	viper.SetDefault("autoimportplaylists", true)
 	viper.SetDefault("playlistspath", consts.DefaultPlaylistsPath)
 	viper.SetDefault("enabledownloads", true)
@@ -246,7 +248,7 @@ func init() {
 	viper.SetDefault("ignoredarticles", "The El La Los Las Le Les Os As O A")
 	viper.SetDefault("indexgroups", "A B C D E F G H I J K L M N O P Q R S T U V W X-Z(XYZ) [Unknown]([)")
 	viper.SetDefault("subsonicartistparticipations", false)
-	viper.SetDefault("probecommand", "ffmpeg %s -f ffmetadata")
+	viper.SetDefault("ffmpegpath", "")
 	viper.SetDefault("coverartpriority", "cover.*, folder.*, front.*, embedded, external")
 	viper.SetDefault("coverjpegquality", 75)
 	viper.SetDefault("enablegravatar", false)
@@ -256,7 +258,7 @@ func init() {
 	viper.SetDefault("defaulttheme", "Dark")
 	viper.SetDefault("defaultlanguage", "")
 	viper.SetDefault("defaultuivolume", consts.DefaultUIVolume)
-	viper.SetDefault("enablereplaygain", false)
+	viper.SetDefault("enablereplaygain", true)
 	viper.SetDefault("enablecoveranimation", true)
 	viper.SetDefault("gatrackingid", "")
 	viper.SetDefault("enablelogredacting", true)
@@ -321,6 +323,7 @@ func InitConfig(cfgFile string) {
 	err := viper.ReadInConfig()
 	if viper.ConfigFileUsed() != "" && err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "FATAL: Navidrome could not open config file: ", err)
+		os.Exit(1)
 	}
 }
 

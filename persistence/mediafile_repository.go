@@ -245,7 +245,6 @@ func (r *mediaFileRepository) DeleteByPath(basePath string) (int64, error) {
 
 func (r *mediaFileRepository) removeNonAlbumArtistIds() error {
 	// upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("id = artist_id")))
-	// upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("all_artist_ids like '%'||artist.id||'%'")))
 	upd := `
 		with media_file_artist as 
 		(WITH RECURSIVE split(seq, art_id, art_id_str, id) AS (
@@ -265,7 +264,7 @@ func (r *mediaFileRepository) removeNonAlbumArtistIds() error {
 		from media_file_artist mfa
 		where mfa.id = media_file.id
 	`
-	log.Debug(r.ctx, "Removing non-album artist_id")
+	log.Debug(r.ctx, "Removing non-album artist_ids")
 	_, err := r.executeRawSQL(upd)
 	return err
 }
