@@ -101,6 +101,7 @@ func isSynced(rawLyrics string) bool {
 func (api *Router) GetLyrics(r *http.Request) (*responses.Subsonic, error) {
 	artist := utils.ParamString(r, "artist")
 	title := utils.ParamString(r, "title")
+	raw := utils.ParamString(r, "raw")
 	response := newResponse()
 	lyrics := responses.Lyrics{}
 	response.Lyrics = &lyrics
@@ -117,7 +118,7 @@ func (api *Router) GetLyrics(r *http.Request) (*responses.Subsonic, error) {
 	lyrics.Artist = artist
 	lyrics.Title = title
 
-	if isSynced(mediaFiles[0].Lyrics) {
+	if isSynced(mediaFiles[0].Lyrics) && raw != "True" {
 		r := regexp.MustCompile(timeStampRegex)
 		lyrics.Value = r.ReplaceAllString(mediaFiles[0].Lyrics, "")
 	} else {
