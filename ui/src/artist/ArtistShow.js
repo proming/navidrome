@@ -5,12 +5,17 @@ import {
   ShowContextProvider,
   useRecordContext,
   useShowContext,
+  Pagination,
   ReferenceManyField,
 } from 'react-admin'
+import { useAlbumsPerPage } from '../common'
 import subsonic from '../subsonic'
 import AlbumGridView from '../album/AlbumGridView'
 import MobileArtistDetails from './MobileArtistDetails'
 import DesktopArtistDetails from './DesktopArtistDetails'
+import { AddToPlaylistDialog } from '../dialogs'
+import AlbumInfo from '../album/AlbumInfo'
+import ExpandInfoDialog from '../dialogs/ExpandInfoDialog'
 
 const ArtistDetails = (props) => {
   const record = useRecordContext(props)
@@ -48,25 +53,31 @@ const ArtistDetails = (props) => {
 }
 
 const AlbumShowLayout = (props) => {
+  const { width } = props
   const showContext = useShowContext(props)
   const record = useRecordContext()
+  const [perPage, perPageOptions] = useAlbumsPerPage(width)
 
   return (
     <>
       {record && <ArtistDetails />}
       {record && (
-        <ReferenceManyField
-          {...showContext}
-          addLabel={false}
-          reference="album"
-          target="artist_id"
-          sort={{ field: 'max_year', order: 'ASC' }}
-          filter={{ artist_id: record?.id }}
-          perPage={0}
-          pagination={null}
-        >
-          <AlbumGridView {...props} />
-        </ReferenceManyField>
+        <>
+          <ReferenceManyField
+            {...showContext}
+            addLabel={false}
+            reference="album"
+            target="artist_id"
+            sort={{ field: 'max_year', order: 'ASC' }}
+            filter={{ artist_id: record?.id }}
+            perPage={perPage}
+            pagination={<Pagination rowsPerPageOptions={perPageOptions} />}
+          >
+            <AlbumGridView {...props} />
+          </ReferenceManyField>
+          <AddToPlaylistDialog />
+          <ExpandInfoDialog content={<AlbumInfo />} />
+        </>
       )}
     </>
   )
