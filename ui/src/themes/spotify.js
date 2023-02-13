@@ -362,6 +362,11 @@ export default {
         height: 'initial',
       },
     },
+    MuiTypography: {
+      body2: {
+        wordBreak: 'break-word',
+      },
+    },
   },
   player: {
     theme: 'dark',

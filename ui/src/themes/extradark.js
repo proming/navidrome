@@ -34,6 +34,11 @@ export default {
           'linear-gradient(to bottom, rgba(52 52 52 / 72%), rgb(0 0 0))!important',
       },
     },
+    MuiTypography: {
+      body2: {
+        wordBreak: 'break-word',
+      },
+    },
   },
 
   player: {

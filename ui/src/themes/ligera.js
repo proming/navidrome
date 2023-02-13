@@ -107,6 +107,9 @@ export default {
       colorTextSecondary: {
         color: '#0a0a0a',
       },
+      body2: {
+        wordBreak: 'break-word',
+      },
     },
     MuiDialog: {
       paper: {
