@@ -138,22 +138,22 @@ func (r sqlRepository) executeSQL(sq Sqlizer) (int64, error) {
 	return res.RowsAffected()
 }
 
-func (r sqlRepository) executeRawSQL(query string) (int64, error) {
-	var args []interface{}
-	start := time.Now()
-	var c int64
-	res, err := r.ormer.Raw(query).Exec()
-	if res != nil {
-		c, _ = res.RowsAffected()
-	}
-	r.logSQL(query, args, err, c, start)
-	if err != nil {
-		if err.Error() != "LastInsertId is not supported by this driver" {
-			return 0, err
-		}
-	}
-	return res.RowsAffected()
-}
+// func (r sqlRepository) executeRawSQL(query string) (int64, error) {
+// 	var args []interface{}
+// 	start := time.Now()
+// 	var c int64
+// 	res, err := r.ormer.Raw(query).Exec()
+// 	if res != nil {
+// 		c, _ = res.RowsAffected()
+// 	}
+// 	r.logSQL(query, args, err, c, start)
+// 	if err != nil {
+// 		if err.Error() != "LastInsertId is not supported by this driver" {
+// 			return 0, err
+// 		}
+// 	}
+// 	return res.RowsAffected()
+// }
 
 // Note: Due to a bug in the QueryRow method, this function does not map any embedded structs (ex: annotations)
 // In this case, use the queryAll method and get the first item of the returned list
