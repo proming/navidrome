@@ -27,25 +27,19 @@ func upChangeImageFilesListSeparator(tx *sql.Tx) error {
 		return err
 	}
 
-	var id, imageFiles sql.NullString
+	var id string
+	var imageFiles sql.NullString
 	for rows.Next() {
 		err = rows.Scan(&id, &imageFiles)
 		if err != nil {
 			return err
 		}
 
-		var imageFilesStr string
-		if imageFiles.Valid {
-			imageFilesStr = imageFiles.String
-		} else {
-			imageFilesStr = ""
-		}
-
-		files := upChangeImageFilesListSeparatorDirs(imageFilesStr)
-		if files == imageFilesStr {
+		files := upChangeImageFilesListSeparatorDirs(imageFiles.String)
+		if files == imageFiles.String {
 			continue
 		}
-		_, err = stmt.Exec(files, id.String)
+		_, err = stmt.Exec(files, id)
 		if err != nil {
 			log.Error("Error updating album's image file list", "files", files, "id", id, err)
 		}
