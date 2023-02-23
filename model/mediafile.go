@@ -27,6 +27,7 @@ type MediaFile struct {
 	AlbumArtistID        string  `structs:"album_artist_id" json:"albumArtistId" orm:"pk;column(album_artist_id)"`
 	AlbumArtist          string  `structs:"album_artist" json:"albumArtist"`
 	AlbumID              string  `structs:"album_id" json:"albumId"       orm:"pk;column(album_id)"`
+	AllArtistIDs         string  `structs:"all_artist_ids" json:"allArtistIds"  orm:"column(all_artist_ids)"`
 	HasCoverArt          bool    `structs:"has_cover_art" json:"hasCoverArt"`
 	TrackNumber          int     `structs:"track_number" json:"trackNumber"`
 	DiscNumber           int     `structs:"disc_number" json:"discNumber"`
@@ -163,7 +164,7 @@ func (mfs MediaFiles) ToAlbum() Album {
 	a = fixAlbumArtist(a, albumArtistIds)
 	songArtistIds = append(songArtistIds, a.AlbumArtistID, a.ArtistID)
 	slices.Sort(songArtistIds)
-	a.AllArtistIDs = strings.Join(slices.Compact(songArtistIds), " ")
+	a.AllArtistIDs = utils.SanitizeStrings(strings.ReplaceAll(strings.Join(songArtistIds, " "), "/", " "))
 	a.MbzAlbumID = slice.MostFrequent(mbzAlbumIds)
 
 	return a
@@ -203,12 +204,38 @@ func fixAlbumArtist(a Album, albumArtistIds []string) Album {
 	return a
 }
 
+// ToArtist creates an Artist object based on the attributes of this MediaFiles collection.
+// It assumes all mediafiles have the same Artist, or else results are unpredictable.
+func (mfs MediaFiles) ToArtist() Artist {
+	a := Artist{SongCount: len(mfs)}
+	var mbzArtistIds []string
+	albumIds := make(map[string]string)
+	for _, al := range mfs {
+		a.ID = al.ArtistID
+		a.Name = al.Artist
+		a.SortArtistName = al.Artist
+		a.OrderArtistName = al.Artist
+
+		a.Size += al.Size
+		a.Genres = append(a.Genres, al.Genres...)
+		mbzArtistIds = append(mbzArtistIds, al.MbzAlbumArtistID)
+		albumIds[al.AlbumID] = al.AlbumID
+	}
+	slices.SortFunc(a.Genres, func(a, b Genre) bool { return a.ID < b.ID })
+	a.Genres = slices.Compact(a.Genres)
+	a.MbzArtistID = slice.MostFrequent(mbzArtistIds)
+	a.AlbumCount = len(albumIds)
+
+	return a
+}
+
 type MediaFileRepository interface {
 	CountAll(options ...QueryOptions) (int64, error)
 	Exists(id string) (bool, error)
 	Put(m *MediaFile) error
 	Get(id string) (*MediaFile, error)
 	GetAll(options ...QueryOptions) (MediaFiles, error)
+	QueryAll(sel []string, response interface{}) error
 	Search(q string, offset int, size int) (MediaFiles, error)
 	Delete(id string) error
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/deluan/sanitize"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/navidrome/navidrome/conf"
 )
 
 var quotesRegex = regexp.MustCompile("[“”‘’'\"\\[\\(\\{\\]\\)\\}]")
@@ -30,6 +31,10 @@ func SanitizeStrings(text ...string) string {
 	}
 	sort.Strings(fullText)
 	return strings.Join(fullText, " ")
+}
+
+func SplitAndJoinStrings(text string) string {
+	return strings.Join(regexp.MustCompile(conf.Server.ArtistsSeparator).Split(text, -1), " ")
 }
 
 var policy = bluemonday.UGCPolicy()

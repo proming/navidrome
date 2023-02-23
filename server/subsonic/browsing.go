@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/navidrome/navidrome/conf"
@@ -132,6 +133,7 @@ func (api *Router) GetArtist(r *http.Request) (*responses.Subsonic, error) {
 	id := utils.ParamString(r, "id")
 	ctx := r.Context()
 
+	id = strings.Split(id, "/")[0]
 	artist, err := api.ds.Artist(ctx).Get(id)
 	if errors.Is(err, model.ErrNotFound) {
 		log.Error(ctx, "Requested ArtistID not found ", "id", id)

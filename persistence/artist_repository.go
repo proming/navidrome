@@ -61,7 +61,7 @@ func (r *artistRepository) Exists(id string) (bool, error) {
 }
 
 func (r *artistRepository) Put(a *model.Artist) error {
-	a.FullText = getFullText(a.Name, a.SortArtistName)
+	a.FullText = getFullText(a.Name, utils.SplitAndJoinStrings(a.SortArtistName))
 	dba := r.fromModel(a)
 	_, err := r.put(dba.ID, dba)
 	if err != nil {
@@ -177,7 +177,8 @@ func (r *artistRepository) GetIndex() (model.ArtistIndexes, error) {
 }
 
 func (r *artistRepository) purgeEmpty() error {
-	del := Delete(r.tableName).Where("id not in (select distinct(album_artist_id) from album)")
+	// del := Delete(r.tableName).Where("id not in (select distinct(album_artist_id) from album)")
+	del := Delete(r.tableName).Where("id not in (select distinct(artist_id) from media_file_artist_list)")
 	c, err := r.executeSQL(del)
 	if err == nil {
 		if c > 0 {
@@ -185,6 +186,10 @@ func (r *artistRepository) purgeEmpty() error {
 		}
 	}
 	return err
+}
+
+func (r *artistRepository) updateAlbumCount() error {
+	return nil
 }
 
 func (r *artistRepository) Search(q string, offset int, size int) (model.Artists, error) {

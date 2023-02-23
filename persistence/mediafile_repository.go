@@ -13,6 +13,7 @@ import (
 	"github.com/deluan/rest"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
+	"github.com/navidrome/navidrome/utils"
 )
 
 type mediaFileRepository struct {
@@ -31,11 +32,16 @@ func NewMediaFileRepository(ctx context.Context, o orm.QueryExecutor) *mediaFile
 		"random": "RANDOM()",
 	}
 	r.filterMappings = map[string]filterFunc{
-		"id":      idFilter(r.tableName),
-		"title":   fullTextFilter,
-		"starred": booleanFilter,
+		"id":              idFilter(r.tableName),
+		"title":           fullTextFilter,
+		"starred":         booleanFilter,
+		"album_artist_id": albumArtistFilter,
 	}
 	return r
+}
+
+func albumArtistFilter(field string, value interface{}) Sqlizer {
+	return Like{"all_artist_ids": fmt.Sprintf("%%%s%%", value)}
 }
 
 func (r *mediaFileRepository) CountAll(options ...model.QueryOptions) (int64, error) {
@@ -49,13 +55,44 @@ func (r *mediaFileRepository) Exists(id string) (bool, error) {
 }
 
 func (r *mediaFileRepository) Put(m *model.MediaFile) error {
-	m.FullText = getFullText(m.Title, m.Album, m.Artist, m.AlbumArtist,
-		m.SortTitle, m.SortAlbumName, m.SortArtistName, m.SortAlbumArtistName, m.DiscSubtitle)
+	m.FullText = getFullText(m.Title, m.Album, utils.SplitAndJoinStrings(m.Artist), utils.SplitAndJoinStrings(m.AlbumArtist),
+		m.SortTitle, m.SortAlbumName, utils.SplitAndJoinStrings(m.SortArtistName), utils.SplitAndJoinStrings(m.SortAlbumArtistName), m.DiscSubtitle)
+	m.AllArtistIDs = utils.SanitizeStrings(strings.ReplaceAll(m.ArtistID, "/", " "), strings.ReplaceAll(m.AlbumArtistID, "/", " "))
 	_, err := r.put(m.ID, m)
 	if err != nil {
 		return err
 	}
-	return r.updateGenres(m.ID, r.tableName, m.Genres)
+	err = r.updateGenres(m.ID, r.tableName, m.Genres)
+	if err != nil {
+		return err
+	}
+	return r.updateMediaFileArtist(m.ID, r.tableName, fmt.Sprintf("%s/%s", m.ArtistID, m.AlbumArtistID), fmt.Sprintf("%s/%s", m.Artist, m.AlbumArtist))
+}
+
+func (r *mediaFileRepository) updateMediaFileArtist(id string, tableName string, artists string, artistNames string) error {
+	del := Delete(tableName + "_artist_list").Where(Eq{tableName + "_id": id})
+	_, err := r.executeSQL(del)
+	if err != nil {
+		return err
+	}
+
+	if len(artists) == 0 {
+		return nil
+	}
+	artistSplit := strings.Split(artists, "/")
+	nameSplit := strings.Split(artistNames, "/")
+	artistMap := make(map[string]string)
+	for idx, a := range artistSplit {
+		artistMap[a] = nameSplit[idx]
+	}
+
+	ins := Insert(tableName+"_artist_list").Columns("artist_id", "artist_name", tableName+"_id")
+	for k, v := range artistMap {
+		ins = ins.Values(k, v, id)
+	}
+
+	_, err = r.executeSQL(ins)
+	return err
 }
 
 func (r *mediaFileRepository) selectMediaFile(options ...model.QueryOptions) SelectBuilder {
@@ -97,6 +134,20 @@ func (r *mediaFileRepository) GetAll(options ...model.QueryOptions) (model.Media
 	}
 	err = r.loadMediaFileGenres(&res)
 	return res, err
+}
+
+func (r *mediaFileRepository) QueryAll(ids []string, response interface{}) error {
+	sel := Select(`
+	mf.id, mf.path, mf.title, mf.album, mfa.artist_name artist, mfa.artist_id, mf.album_artist, mf.album_id, 
+	mf.has_cover_art, mf.track_number, mf.disc_number, mf.year, mf.size, mf.suffix, mf.duration, 
+	mf.bit_rate, mf.genre, mf.compilation, mf.created_at, mf.updated_at, mf.full_text, mf.album_artist_id, 
+	mf.order_album_name, mf.order_album_artist_name, mf.order_artist_name, mf.sort_album_name, 
+	mf.sort_artist_name, mf.sort_album_artist_name, mf.sort_title, mf.disc_subtitle, mf.mbz_track_id, 
+	mf.mbz_album_id, mf.mbz_artist_id, mf.mbz_album_artist_id, mf.mbz_album_type, mf.mbz_album_comment, 
+	mf.catalog_num, mf.comment, mf.lyrics, mf.bpm, mf.channels, mf.order_title, mf.mbz_release_track_id, 
+	mf.rg_album_gain, mf.rg_album_peak, mf.rg_track_gain, mf.rg_track_peak, mf.all_artist_ids
+	`).From("media_file mf").LeftJoin("media_file_artist_list mfa on mf.id=mfa.media_file_id").Where(Eq{"mfa.artist_id": ids})
+	return r.queryAll(sel, response)
 }
 
 func (r *mediaFileRepository) FindByPath(path string) (*model.MediaFile, error) {
@@ -178,7 +229,8 @@ func (r *mediaFileRepository) DeleteByPath(basePath string) (int64, error) {
 }
 
 func (r *mediaFileRepository) removeNonAlbumArtistIds() error {
-	upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("id = artist_id")))
+	// upd := Update(r.tableName).Set("artist_id", "").Where(notExists("artist", ConcatExpr("id = artist_id")))
+	upd := Update(r.tableName).Set("artist_id", "").Where("id not in (select distinct(media_file_id) from media_file_artist_list)")
 	log.Debug(r.ctx, "Removing non-album artist_ids")
 	_, err := r.executeSQL(upd)
 	return err

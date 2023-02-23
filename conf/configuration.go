@@ -68,7 +68,9 @@ type configOptions struct {
 	ReverseProxyUserHeader       string
 	ReverseProxyWhitelist        string
 	Prometheus                   prometheusOptions
-	Scanner                      scannerOptions
+	ArtistsSeparator             string
+
+	Scanner scannerOptions
 
 	Agents       string
 	LastFM       lastfmOptions
@@ -269,6 +271,8 @@ func init() {
 
 	viper.SetDefault("prometheus.enabled", false)
 	viper.SetDefault("prometheus.metricspath", "/metrics")
+
+	viper.SetDefault("artistsseparator", "[/]+")
 
 	viper.SetDefault("scanner.extractor", consts.DefaultScannerExtractor)
 	viper.SetDefault("scanner.genreseparators", ";/,")

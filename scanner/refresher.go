@@ -45,7 +45,18 @@ func (r *refresher) accumulate(mf model.MediaFile) {
 		r.album[mf.AlbumID] = struct{}{}
 	}
 	if mf.AlbumArtistID != "" {
-		r.artist[mf.AlbumArtistID] = struct{}{}
+		ids := strings.Split(mf.AlbumArtistID, "/")
+		for i := range ids {
+			r.artist[ids[i]] = struct{}{}
+		}
+
+		//r.artist[mf.AlbumArtistID] = struct{}{}
+	}
+	if mf.ArtistID != "" {
+		ids := strings.Split(mf.ArtistID, "/")
+		for i := range ids {
+			r.artist[ids[i]] = struct{}{}
+		}
 	}
 }
 
@@ -55,7 +66,7 @@ func (r *refresher) flush(ctx context.Context) error {
 		return err
 	}
 	r.album = map[string]struct{}{}
-	err = r.flushMap(ctx, r.artist, "artist", r.refreshArtists)
+	err = r.flushMap(ctx, r.artist, "artist", r.refreshArtists2)
 	if err != nil {
 		return err
 	}
@@ -138,6 +149,34 @@ func (r *refresher) refreshArtists(ctx context.Context, ids ...string) error {
 	grouped := slice.Group(albums, func(al model.Album) string { return al.AlbumArtistID })
 	for _, group := range grouped {
 		a := model.Albums(group).ToAlbumArtist()
+
+		// Force a external metadata lookup on next access
+		a.ExternalInfoUpdatedAt = time.Time{}
+
+		err := repo.Put(&a)
+		if err != nil {
+			return err
+		}
+		r.cacheWarmer.PreCache(a.CoverArtID())
+	}
+	return nil
+}
+
+func (r *refresher) refreshArtists2(ctx context.Context, ids ...string) error {
+	var mfs model.MediaFiles
+	err := r.ds.MediaFile(ctx).QueryAll(ids, &mfs)
+	if err != nil {
+		return err
+	}
+	if len(mfs) == 0 {
+		return nil
+	}
+
+	repo := r.ds.Artist(ctx)
+	grouped := slice.Group(mfs, func(m model.MediaFile) string { return m.ArtistID })
+	for _, group := range grouped {
+		songs := model.MediaFiles(group)
+		a := songs.ToArtist()
 
 		// Force a external metadata lookup on next access
 		a.ExternalInfoUpdatedAt = time.Time{}

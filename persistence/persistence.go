@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"reflect"
+	"time"
 
 	"github.com/beego/beego/v2/client/orm"
 	"github.com/navidrome/navidrome/db"
@@ -119,55 +120,72 @@ func (s *SQLStore) WithTx(block func(tx model.DataStore) error) error {
 }
 
 func (s *SQLStore) GC(ctx context.Context, rootFolder string) error {
+	start := time.Now()
 	err := s.MediaFile(ctx).(*mediaFileRepository).deleteNotInPath(rootFolder)
 	if err != nil {
 		log.Error(ctx, "Error removing dangling tracks", err)
 		return err
 	}
+	log.Info("MediaFile deleteNotInPath", "elapsedTime", time.Since(start))
 	err = s.MediaFile(ctx).(*mediaFileRepository).removeNonAlbumArtistIds()
 	if err != nil {
 		log.Error(ctx, "Error removing non-album artist_ids", err)
 		return err
 	}
+	log.Info("MediaFile removeNonAlbumArtistIds", "elapsedTime", time.Since(start))
 	err = s.Album(ctx).(*albumRepository).purgeEmpty()
 	if err != nil {
 		log.Error(ctx, "Error removing empty albums", err)
 		return err
 	}
+	log.Info("Album purgeEmpty", "elapsedTime", time.Since(start))
 	err = s.Artist(ctx).(*artistRepository).purgeEmpty()
 	if err != nil {
 		log.Error(ctx, "Error removing empty artists", err)
 		return err
 	}
+	log.Info("Artist purgeEmpty", "elapsedTime", time.Since(start))
+	err = s.Artist(ctx).(*artistRepository).updateAlbumCount()
+	if err != nil {
+		log.Error(ctx, "Error update artist album count", err)
+		return err
+	}
+	log.Info("Artist updateAlbumCount", "elapsedTime", time.Since(start))
 	err = s.MediaFile(ctx).(*mediaFileRepository).cleanAnnotations()
 	if err != nil {
 		log.Error(ctx, "Error removing orphan mediafile annotations", err)
 		return err
 	}
+	log.Info("MediaFile cleanAnnotations", "elapsedTime", time.Since(start))
 	err = s.Album(ctx).(*albumRepository).cleanAnnotations()
 	if err != nil {
 		log.Error(ctx, "Error removing orphan album annotations", err)
 		return err
 	}
+	log.Info("Album cleanAnnotations", "elapsedTime", time.Since(start))
 	err = s.Artist(ctx).(*artistRepository).cleanAnnotations()
 	if err != nil {
 		log.Error(ctx, "Error removing orphan artist annotations", err)
 		return err
 	}
+	log.Info("Artist cleanAnnotations", "elapsedTime", time.Since(start))
 	err = s.MediaFile(ctx).(*mediaFileRepository).cleanBookmarks()
 	if err != nil {
 		log.Error(ctx, "Error removing orphan bookmarks", err)
 		return err
 	}
+	log.Info("MediaFile cleanBookmarks", "elapsedTime", time.Since(start))
 	err = s.Playlist(ctx).(*playlistRepository).removeOrphans()
 	if err != nil {
 		log.Error(ctx, "Error tidying up playlists", err)
 	}
+	log.Info("Playlist removeOrphans", "elapsedTime", time.Since(start))
 	err = s.Genre(ctx).(*genreRepository).purgeEmpty()
 	if err != nil {
 		log.Error(ctx, "Error removing unused genres", err)
 		return err
 	}
+	log.Info("Genre purgeEmpty", "elapsedTime", time.Since(start))
 	return err
 }
 

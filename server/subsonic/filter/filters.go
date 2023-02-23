@@ -55,7 +55,7 @@ func AlbumsByArtistID(artistId string) Options {
 	if conf.Server.SubsonicArtistParticipations {
 		filters = squirrel.Like{"all_artist_ids": fmt.Sprintf("%%%s%%", artistId)}
 	} else {
-		filters = squirrel.Eq{"album_artist_id": artistId}
+		filters = squirrel.Like{"album_artist_id": fmt.Sprintf("%%%s%%", artistId)}
 	}
 	return Options{
 		Sort:    "max_year",

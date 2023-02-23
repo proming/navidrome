@@ -71,7 +71,8 @@ func yearFilter(field string, value interface{}) Sqlizer {
 }
 
 func artistFilter(field string, value interface{}) Sqlizer {
-	return Like{"all_artist_ids": fmt.Sprintf("%%%s%%", value)}
+	// return Like{"all_artist_ids": fmt.Sprintf("%%%s%%", value)}
+	return Like{"album_artist_id": fmt.Sprintf("%%%s%%", value)}
 }
 
 func (r *albumRepository) CountAll(options ...model.QueryOptions) (int64, error) {
