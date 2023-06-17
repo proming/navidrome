@@ -103,7 +103,7 @@ export default {
     },
   },
   player: {
-    theme: 'monokai',
+    theme: 'dark',
     stylesheet: require('./monokai.css.js'),
   },
 }
