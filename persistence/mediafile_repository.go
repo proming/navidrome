@@ -142,7 +142,7 @@ func (r *mediaFileRepository) QueryAll(ids []string, response interface{}) error
 	mf.has_cover_art, mf.track_number, mf.disc_number, mf.year, mf.size, mf.suffix, mf.duration, 
 	mf.bit_rate, mf.genre, mf.compilation, mf.created_at, mf.updated_at, mf.full_text, mf.album_artist_id, 
 	mf.order_album_name, mf.order_album_artist_name, mf.order_artist_name, mf.sort_album_name, 
-	mf.sort_artist_name, mf.sort_album_artist_name, mf.sort_title, mf.disc_subtitle, mf.mbz_track_id, 
+	mf.sort_artist_name, mf.sort_album_artist_name, mf.sort_title, mf.disc_subtitle, mf.mbz_recording_id, 
 	mf.mbz_album_id, mf.mbz_artist_id, mf.mbz_album_artist_id, mf.mbz_album_type, mf.mbz_album_comment, 
 	mf.catalog_num, mf.comment, mf.lyrics, mf.bpm, mf.channels, mf.order_title, mf.mbz_release_track_id, 
 	mf.rg_album_gain, mf.rg_album_peak, mf.rg_track_gain, mf.rg_track_peak, mf.all_artist_ids
