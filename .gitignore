@@ -26,3 +26,4 @@ tags
 docker-compose.yml
 !contrib/docker-compose.yml
 __debug_bin
+test-123.db

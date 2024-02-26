@@ -118,7 +118,7 @@ export default {
     },
     MuiFormGroup: {
       root: {
-        color: bLight['500'],
+        color: '#464646',
       },
     },
     MuiMenuItem: {

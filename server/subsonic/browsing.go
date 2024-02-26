@@ -15,6 +15,7 @@ import (
 	"github.com/navidrome/navidrome/server/subsonic/filter"
 	"github.com/navidrome/navidrome/server/subsonic/responses"
 	"github.com/navidrome/navidrome/utils"
+	"github.com/navidrome/navidrome/utils/req"
 )
 
 func (api *Router) GetMusicFolders(r *http.Request) (*responses.Subsonic, error) {
@@ -68,8 +69,9 @@ func (api *Router) getArtistIndex(r *http.Request, mediaFolderId int, ifModified
 }
 
 func (api *Router) GetIndexes(r *http.Request) (*responses.Subsonic, error) {
-	musicFolderId := utils.ParamInt(r, "musicFolderId", 0)
-	ifModifiedSince := utils.ParamTime(r, "ifModifiedSince", time.Time{})
+	p := req.Params(r)
+	musicFolderId := p.IntOr("musicFolderId", 0)
+	ifModifiedSince := p.TimeOr("ifModifiedSince", time.Time{})
 
 	res, err := api.getArtistIndex(r, musicFolderId, ifModifiedSince)
 	if err != nil {
@@ -82,7 +84,8 @@ func (api *Router) GetIndexes(r *http.Request) (*responses.Subsonic, error) {
 }
 
 func (api *Router) GetArtists(r *http.Request) (*responses.Subsonic, error) {
-	musicFolderId := utils.ParamInt(r, "musicFolderId", 0)
+	p := req.Params(r)
+	musicFolderId := p.IntOr("musicFolderId", 0)
 	res, err := api.getArtistIndex(r, musicFolderId, time.Time{})
 	if err != nil {
 		return nil, err
@@ -94,7 +97,8 @@ func (api *Router) GetArtists(r *http.Request) (*responses.Subsonic, error) {
 }
 
 func (api *Router) GetMusicDirectory(r *http.Request) (*responses.Subsonic, error) {
-	id := utils.ParamString(r, "id")
+	p := req.Params(r)
+	id, _ := p.String("id")
 	ctx := r.Context()
 
 	entity, err := model.GetEntityByID(ctx, api.ds, id)
@@ -130,7 +134,8 @@ func (api *Router) GetMusicDirectory(r *http.Request) (*responses.Subsonic, erro
 }
 
 func (api *Router) GetArtist(r *http.Request) (*responses.Subsonic, error) {
-	id := utils.ParamString(r, "id")
+	p := req.Params(r)
+	id, _ := p.String("id")
 	ctx := r.Context()
 
 	id = strings.Split(id, "/")[0]
@@ -153,7 +158,8 @@ func (api *Router) GetArtist(r *http.Request) (*responses.Subsonic, error) {
 }
 
 func (api *Router) GetAlbum(r *http.Request) (*responses.Subsonic, error) {
-	id := utils.ParamString(r, "id")
+	p := req.Params(r)
+	id, _ := p.String("id")
 
 	ctx := r.Context()
 
@@ -179,7 +185,8 @@ func (api *Router) GetAlbum(r *http.Request) (*responses.Subsonic, error) {
 }
 
 func (api *Router) GetAlbumInfo(r *http.Request) (*responses.Subsonic, error) {
-	id, err := requiredParamString(r, "id")
+	p := req.Params(r)
+	id, err := p.String("id")
 	ctx := r.Context()
 
 	if err != nil {
@@ -206,7 +213,8 @@ func (api *Router) GetAlbumInfo(r *http.Request) (*responses.Subsonic, error) {
 }
 
 func (api *Router) GetSong(r *http.Request) (*responses.Subsonic, error) {
-	id := utils.ParamString(r, "id")
+	p := req.Params(r)
+	id, _ := p.String("id")
 	ctx := r.Context()
 
 	mf, err := api.ds.MediaFile(ctx).Get(id)
@@ -245,12 +253,13 @@ func (api *Router) GetGenres(r *http.Request) (*responses.Subsonic, error) {
 
 func (api *Router) GetArtistInfo(r *http.Request) (*responses.Subsonic, error) {
 	ctx := r.Context()
-	id, err := requiredParamString(r, "id")
+	p := req.Params(r)
+	id, err := p.String("id")
 	if err != nil {
 		return nil, err
 	}
-	count := utils.ParamInt(r, "count", 20)
-	includeNotPresent := utils.ParamBool(r, "includeNotPresent", false)
+	count := p.IntOr("count", 20)
+	includeNotPresent := p.BoolOr("includeNotPresent", false)
 
 	artist, err := api.externalMetadata.UpdateArtistInfo(ctx, id, count, includeNotPresent)
 	if err != nil {
@@ -297,11 +306,12 @@ func (api *Router) GetArtistInfo2(r *http.Request) (*responses.Subsonic, error) 
 
 func (api *Router) GetSimilarSongs(r *http.Request) (*responses.Subsonic, error) {
 	ctx := r.Context()
-	id, err := requiredParamString(r, "id")
+	p := req.Params(r)
+	id, err := p.String("id")
 	if err != nil {
 		return nil, err
 	}
-	count := utils.ParamInt(r, "count", 50)
+	count := p.IntOr("count", 50)
 
 	songs, err := api.externalMetadata.SimilarSongs(ctx, id, count)
 	if err != nil {
@@ -330,11 +340,12 @@ func (api *Router) GetSimilarSongs2(r *http.Request) (*responses.Subsonic, error
 
 func (api *Router) GetTopSongs(r *http.Request) (*responses.Subsonic, error) {
 	ctx := r.Context()
-	artist, err := requiredParamString(r, "artist")
+	p := req.Params(r)
+	artist, err := p.String("artist")
 	if err != nil {
 		return nil, err
 	}
-	count := utils.ParamInt(r, "count", 50)
+	count := p.IntOr("count", 50)
 
 	songs, err := api.externalMetadata.TopSongs(ctx, artist, count)
 	if err != nil {
@@ -354,12 +365,12 @@ func (api *Router) buildArtistDirectory(ctx context.Context, artist *model.Artis
 	dir.Name = artist.Name
 	dir.PlayCount = artist.PlayCount
 	if artist.PlayCount > 0 {
-		dir.Played = &artist.PlayDate
+		dir.Played = artist.PlayDate
 	}
 	dir.AlbumCount = int32(artist.AlbumCount)
 	dir.UserRating = int32(artist.Rating)
 	if artist.Starred {
-		dir.Starred = &artist.StarredAt
+		dir.Starred = artist.StarredAt
 	}
 
 	albums, err := api.ds.Album(ctx).GetAllWithoutGenres(filter.AlbumsByArtistID(artist.ID))
@@ -392,13 +403,13 @@ func (api *Router) buildAlbumDirectory(ctx context.Context, album *model.Album) 
 	dir.Parent = album.AlbumArtistID
 	dir.PlayCount = album.PlayCount
 	if album.PlayCount > 0 {
-		dir.Played = &album.PlayDate
+		dir.Played = album.PlayDate
 	}
 	dir.UserRating = int32(album.Rating)
 	dir.SongCount = int32(album.SongCount)
 	dir.CoverArt = album.CoverArtID().String()
 	if album.Starred {
-		dir.Starred = &album.StarredAt
+		dir.Starred = album.StarredAt
 	}
 
 	mfs, err := api.ds.MediaFile(ctx).GetAll(filter.SongsByAlbum(album.ID))
@@ -412,26 +423,7 @@ func (api *Router) buildAlbumDirectory(ctx context.Context, album *model.Album) 
 
 func (api *Router) buildAlbum(ctx context.Context, album *model.Album, mfs model.MediaFiles) *responses.AlbumWithSongsID3 {
 	dir := &responses.AlbumWithSongsID3{}
-	dir.Id = album.ID
-	dir.Name = album.Name
-	dir.Artist = album.AlbumArtist
-	dir.ArtistId = album.AlbumArtistID
-	dir.CoverArt = album.CoverArtID().String()
-	dir.SongCount = int32(album.SongCount)
-	dir.Duration = int32(album.Duration)
-	dir.PlayCount = album.PlayCount
-	if album.PlayCount > 0 {
-		dir.Played = &album.PlayDate
-	}
-	dir.Year = int32(album.MaxYear)
-	dir.Genre = album.Genre
-	dir.UserRating = int32(album.Rating)
-	if !album.CreatedAt.IsZero() {
-		dir.Created = &album.CreatedAt
-	}
-	if album.Starred {
-		dir.Starred = &album.StarredAt
-	}
+	dir.AlbumID3 = buildAlbumID3(ctx, *album)
 	dir.Song = childrenFromMediaFiles(ctx, mfs)
 	return dir
 }
