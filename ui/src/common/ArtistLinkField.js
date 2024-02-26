@@ -22,44 +22,43 @@ export const ArtistLinkField = withWidth()(({
 }) => {
   const artistLink = useGetHandleArtistClick(width)
 
-    const id = record[source + 'Id']
-    let artistIds = []
-    let artistNames = []
-    if (id) {
-      artistIds = id.split('/')
-      artistNames = record[source].split('/')
-    }
-    return (
-      <>
-        {id &&
-          artistIds.length === artistNames.length &&
-          artistIds.slice(0, 5).map((artistId, index, arr) => (
-            <>
-              {index < 4 || index === artistIds.length - 1 ? (
-                <Link
-                  to={artistLink(artistId)}
-                  onClick={(e) => e.stopPropagation()}
-                  className={className}
-                >
-                  {artistNames[index]}
-                </Link>
-              ) : (
-                <Link
-                  to={artistLink(artistId)}
-                  onClick={(e) => e.stopPropagation()}
-                  className={className}
-                >
-                  ...
-                </Link>
-              )}
-              {index < arr.length - 1 && <> / </>}
-            </>
-          ))}
-        {(!id || artistIds.length !== artistNames.length) && record[source]}
-      </>
-    )
+  const id = record[source + 'Id']
+  let artistIds = []
+  let artistNames = []
+  if (id) {
+    artistIds = id.split('/')
+    artistNames = record[source].split('/')
   }
-)
+  return (
+    <>
+      {id &&
+        artistIds.length === artistNames.length &&
+        artistIds.slice(0, 5).map((artistId, index, arr) => (
+          <>
+            {index < 4 || index === artistIds.length - 1 ? (
+              <Link
+                to={artistLink(artistId)}
+                onClick={(e) => e.stopPropagation()}
+                className={className}
+              >
+                {artistNames[index]}
+              </Link>
+            ) : (
+              <Link
+                to={artistLink(artistId)}
+                onClick={(e) => e.stopPropagation()}
+                className={className}
+              >
+                ...
+              </Link>
+            )}
+            {index < arr.length - 1 && <> / </>}
+          </>
+        ))}
+      {(!id || artistIds.length !== artistNames.length) && record[source]}
+    </>
+  )
+})
 
 ArtistLinkField.propTypes = {
   record: PropTypes.object,
