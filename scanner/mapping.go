@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/deluan/sanitize"
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/consts"
 	"github.com/navidrome/navidrome/model"
@@ -48,6 +47,7 @@ func (s MediaFileMapper) ToMediaFile(md metadata.Tags) model.MediaFile {
 	mf.DiscSubtitle = md.DiscSubtitle()
 	mf.Duration = md.Duration()
 	mf.BitRate = md.BitRate()
+	mf.SampleRate = md.SampleRate()
 	mf.Channels = md.Channels()
 	mf.Path = md.FilePath()
 	mf.Suffix = md.Suffix()
@@ -57,10 +57,10 @@ func (s MediaFileMapper) ToMediaFile(md metadata.Tags) model.MediaFile {
 	mf.SortAlbumName = md.SortAlbum()
 	mf.SortArtistName = md.SortArtist()
 	mf.SortAlbumArtistName = md.SortAlbumArtist()
-	mf.OrderTitle = strings.TrimSpace(sanitize.Accents(mf.Title))
-	mf.OrderAlbumName = sanitizeFieldForSorting(mf.Album)
-	mf.OrderArtistName = sanitizeFieldForSorting(utils.SplitAndJoinStrings(mf.Artist))
-	mf.OrderAlbumArtistName = sanitizeFieldForSorting(utils.SplitAndJoinStrings(mf.AlbumArtist))
+	mf.OrderTitle = utils.SanitizeFieldForSorting(mf.Title)
+	mf.OrderAlbumName = utils.SanitizeFieldForSortingNoArticle(mf.Album)
+	mf.OrderArtistName = utils.SanitizeFieldForSortingNoArticle(utils.SplitAndJoinStrings(mf.Artist))
+	mf.OrderAlbumArtistName = utils.SanitizeFieldForSortingNoArticle(utils.SplitAndJoinStrings(mf.AlbumArtist))
 	mf.CatalogNum = md.CatalogNum()
 	mf.MbzRecordingID = md.MbzRecordingID()
 	mf.MbzReleaseTrackID = md.MbzReleaseTrackID()
@@ -80,11 +80,6 @@ func (s MediaFileMapper) ToMediaFile(md metadata.Tags) model.MediaFile {
 	mf.UpdatedAt = md.ModificationTime()
 
 	return *mf
-}
-
-func sanitizeFieldForSorting(originalValue string) string {
-	v := strings.TrimSpace(sanitize.Accents(originalValue))
-	return utils.NoArticle(v)
 }
 
 func (s MediaFileMapper) mapTrackTitle(md metadata.Tags) string {

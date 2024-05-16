@@ -14,16 +14,11 @@ import (
 	"github.com/navidrome/navidrome/log"
 )
 
-// mpv --no-audio-display --pause 'Jack Johnson/On And On/01 Times Like These.m4a' --input-ipc-server=/tmp/gonzo.socket
-const (
-	mpvComdTemplate = "mpv --audio-device=%d --no-audio-display --pause %f --input-ipc-server=%s"
-)
-
-func start(args []string) (Executor, error) {
+func start(ctx context.Context, args []string) (Executor, error) {
 	log.Debug("Executing mpv command", "cmd", args)
 	j := Executor{args: args}
 	j.PipeReader, j.out = io.Pipe()
-	err := j.start()
+	err := j.start(ctx)
 	if err != nil {
 		return Executor{}, err
 	}
@@ -43,12 +38,9 @@ type Executor struct {
 	out  *io.PipeWriter
 	args []string
 	cmd  *exec.Cmd
-	ctx  context.Context
 }
 
-func (j *Executor) start() error {
-	ctx := context.Background()
-	j.ctx = ctx
+func (j *Executor) start(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, j.args[0], j.args[1:]...) // #nosec
 	cmd.Stdout = j.out
 	if log.IsGreaterOrEqualTo(log.LevelTrace) {
@@ -78,15 +70,14 @@ func (j *Executor) wait() {
 }
 
 // Path will always be an absolute path
-func createMPVCommand(cmd, deviceName string, filename string, socketName string) []string {
-	split := strings.Split(fixCmd(cmd), " ")
+func createMPVCommand(deviceName string, filename string, socketName string) []string {
+	split := strings.Split(fixCmd(conf.Server.MPVCmdTemplate), " ")
 	for i, s := range split {
 		s = strings.ReplaceAll(s, "%d", deviceName)
 		s = strings.ReplaceAll(s, "%f", filename)
 		s = strings.ReplaceAll(s, "%s", socketName)
 		split[i] = s
 	}
-
 	return split
 }
 

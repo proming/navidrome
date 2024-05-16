@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/navidrome/navidrome/conf"
@@ -17,6 +16,7 @@ import (
 	"github.com/navidrome/navidrome/model/request"
 	"github.com/navidrome/navidrome/server/public"
 	"github.com/navidrome/navidrome/server/subsonic/responses"
+	"github.com/navidrome/navidrome/utils/number"
 )
 
 func newResponse() *responses.Subsonic {
@@ -192,6 +192,8 @@ func childFromMediaFile(ctx context.Context, mf model.MediaFile) responses.Child
 		TrackPeak: mf.RgTrackPeak,
 		AlbumPeak: mf.RgAlbumPeak,
 	}
+	child.ChannelCount = int32(mf.Channels)
+	child.SamplingRate = int32(mf.SampleRate)
 	return child
 }
 
@@ -262,12 +264,12 @@ func toItemDate(date string) responses.ItemDate {
 	}
 	parts := strings.Split(date, "-")
 	if len(parts) > 2 {
-		itemDate.Day, _ = strconv.Atoi(parts[2])
+		itemDate.Day = number.ParseInt[int32](parts[2])
 	}
 	if len(parts) > 1 {
-		itemDate.Month, _ = strconv.Atoi(parts[1])
+		itemDate.Month = number.ParseInt[int32](parts[1])
 	}
-	itemDate.Year, _ = strconv.Atoi(parts[0])
+	itemDate.Year = number.ParseInt[int32](parts[0])
 
 	return itemDate
 }
@@ -286,7 +288,7 @@ func buildDiscSubtitles(_ context.Context, a model.Album) responses.DiscTitles {
 	}
 	discTitles := responses.DiscTitles{}
 	for num, title := range a.Discs {
-		discTitles = append(discTitles, responses.DiscTitle{Disc: num, Title: title})
+		discTitles = append(discTitles, responses.DiscTitle{Disc: int32(num), Title: title})
 	}
 	sort.Slice(discTitles, func(i, j int) bool {
 		return discTitles[i].Disc < discTitles[j].Disc
@@ -330,6 +332,7 @@ func buildAlbumID3(ctx context.Context, album model.Album) responses.AlbumID3 {
 	dir.IsCompilation = album.Compilation
 	dir.SortName = album.SortAlbumName
 	dir.OriginalReleaseDate = toItemDate(album.OriginalDate)
+	dir.ReleaseDate = toItemDate(album.ReleaseDate)
 	return dir
 }
 

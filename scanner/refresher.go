@@ -12,7 +12,6 @@ import (
 	"github.com/navidrome/navidrome/core/artwork"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
-	. "github.com/navidrome/navidrome/utils/gg"
 	"github.com/navidrome/navidrome/utils/slice"
 	"golang.org/x/exp/maps"
 )
@@ -24,15 +23,17 @@ import (
 // The actual mappings happen in MediaFiles.ToAlbum() and Albums.ToAlbumArtist()
 type refresher struct {
 	ds          model.DataStore
+	lib         model.Library
 	album       map[string]struct{}
 	artist      map[string]struct{}
 	dirMap      dirMap
 	cacheWarmer artwork.CacheWarmer
 }
 
-func newRefresher(ds model.DataStore, cw artwork.CacheWarmer, dirMap dirMap) *refresher {
+func newRefresher(ds model.DataStore, cw artwork.CacheWarmer, lib model.Library, dirMap dirMap) *refresher {
 	return &refresher{
 		ds:          ds,
+		lib:         lib,
 		album:       map[string]struct{}{},
 		artist:      map[string]struct{}{},
 		dirMap:      dirMap,
@@ -112,6 +113,7 @@ func (r *refresher) refreshAlbums(ctx context.Context, ids ...string) error {
 		if updatedAt.After(a.UpdatedAt) {
 			a.UpdatedAt = updatedAt
 		}
+		a.LibraryID = r.lib.ID
 		err := repo.Put(&a)
 		if err != nil {
 			return err
@@ -173,16 +175,23 @@ func (r *refresher) refreshArtists2(ctx context.Context, ids ...string) error {
 	}
 
 	repo := r.ds.Artist(ctx)
+	libRepo := r.ds.Library(ctx)
 	grouped := slice.Group(mfs, func(m model.MediaFile) string { return m.ArtistID })
 	for _, group := range grouped {
 		songs := model.MediaFiles(group)
 		a := songs.ToArtist()
 
-		// Force a external metadata lookup on next access
-		a.ExternalInfoUpdatedAt = P(time.Time{})
+		// Force an external metadata lookup on next access
+		a.ExternalInfoUpdatedAt = &time.Time{}
 
 		// Do not remove old metadata
 		err := repo.Put(&a, "album_count", "genres", "external_info_updated_at", "mbz_artist_id", "name", "order_artist_name", "size", "sort_artist_name", "song_count")
+		if err != nil {
+			return err
+		}
+
+		// Link the artist to the current library being scanned
+		err = libRepo.AddArtist(r.lib.ID, a.ID)
 		if err != nil {
 			return err
 		}

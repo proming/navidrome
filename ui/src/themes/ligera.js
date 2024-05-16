@@ -303,6 +303,8 @@ export default {
         fontSize: '.875rem',
         color: 'rgb(113 113 113 / 80%)',
       },
+    },
+    NDCollapsibleComment: {
       commentBlock: {
         fontSize: '.875rem',
         color: 'rgb(113 113 113 / 80%)',

@@ -30,15 +30,17 @@ func (r *playlistRepository) Tracks(playlistId string, refreshSmartPlaylist bool
 		"id":     "playlist_tracks.id",
 		"artist": "order_artist_name asc",
 		"album":  "order_album_name asc, order_album_artist_name asc",
+		"title":  "order_title",
 	}
 	if conf.Server.PreferSortTags {
 		p.sortMappings["artist"] = "COALESCE(NULLIF(sort_artist_name,''),order_artist_name) asc"
 		p.sortMappings["album"] = "COALESCE(NULLIF(sort_album_name,''),order_album_name)"
+		p.sortMappings["title"] = "COALESCE(NULLIF(sort_title,''),title)"
 	}
 
 	pls, err := r.Get(playlistId)
 	if err != nil {
-		log.Error(r.ctx, "Error getting playlist's tracks - THIS SHOULD NOT HAPPEN!", "playlistId", playlistId, err)
+		log.Warn(r.ctx, "Error getting playlist's tracks", "playlistId", playlistId, err)
 		return nil
 	}
 	if refreshSmartPlaylist {
@@ -74,13 +76,19 @@ func (r *playlistTrackRepository) Read(id string) (interface{}, error) {
 	return &trk, err
 }
 
+// This is a "hack" to allow loadAllGenres to work with playlist tracks. Will be removed once we have a new
+// one-to-many relationship solution
+func (r *playlistTrackRepository) getTableName() string {
+	return "media_file"
+}
+
 func (r *playlistTrackRepository) GetAll(options ...model.QueryOptions) (model.PlaylistTracks, error) {
 	tracks, err := r.playlistRepo.loadTracks(r.newSelect(options...), r.playlistId)
 	if err != nil {
 		return nil, err
 	}
 	mfs := tracks.MediaFiles()
-	err = r.loadMediaFileGenres(&mfs)
+	err = loadAllGenres(r, mfs)
 	if err != nil {
 		log.Error(r.ctx, "Error loading genres for playlist", "playlist", r.playlist.Name, "id", r.playlist.ID, err)
 		return nil, err

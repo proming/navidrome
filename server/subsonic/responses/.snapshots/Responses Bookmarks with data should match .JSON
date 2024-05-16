@@ -18,7 +18,9 @@
           "mediaType": "",
           "musicBrainzId": "",
           "genres": [],
-          "replayGain": {}
+          "replayGain": {},
+          "channelCount": 0,
+          "samplingRate": 0
         },
         "position": 123,
         "username": "user2",

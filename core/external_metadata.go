@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/deluan/sanitize"
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/core/agents"
 	_ "github.com/navidrome/navidrome/core/agents/lastfm"
@@ -19,6 +18,7 @@ import (
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/utils"
 	. "github.com/navidrome/navidrome/utils/gg"
+	"github.com/navidrome/navidrome/utils/random"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -267,8 +267,8 @@ func (e *externalMetadata) SimilarSongs(ctx context.Context, id string, count in
 		return nil, ctx.Err()
 	}
 
-	weightedSongs := utils.NewWeightedRandomChooser()
-	addArtist := func(a model.Artist, weightedSongs *utils.WeightedChooser, count, artistWeight int) error {
+	weightedSongs := random.NewWeightedRandomChooser()
+	addArtist := func(a model.Artist, weightedSongs *random.WeightedChooser, count, artistWeight int) error {
 		if utils.IsCtxDone(ctx) {
 			log.Warn(ctx, "SimilarSongs call canceled", ctx.Err())
 			return ctx.Err()
@@ -414,7 +414,7 @@ func (e *externalMetadata) findMatchingTrack(ctx context.Context, mbid string, a
 				squirrel.Eq{"artist_id": artistID},
 				squirrel.Eq{"album_artist_id": artistID},
 			},
-			squirrel.Like{"order_title": strings.TrimSpace(sanitize.Accents(title))},
+			squirrel.Like{"order_title": utils.SanitizeFieldForSorting(title)},
 		},
 		Sort: "starred desc, rating desc, year asc, compilation asc ",
 		Max:  1,

@@ -16,7 +16,9 @@
         "mediaType": "",
         "musicBrainzId": "",
         "genres": [],
-        "replayGain": {}
+        "replayGain": {},
+        "channelCount": 0,
+        "samplingRate": 0
       }
     ],
     "id": "",

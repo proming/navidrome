@@ -142,7 +142,8 @@ var _ = Describe("Responses", func() {
 					Year: 1985, Genre: "Rock", CoverArt: "1", Size: 8421341, ContentType: "audio/flac",
 					Suffix: "flac", TranscodedContentType: "audio/mpeg", TranscodedSuffix: "mp3",
 					Duration: 146, BitRate: 320, Starred: &t, Genres: []ItemGenre{{Name: "rock"}, {Name: "progressive"}},
-					Comment: "a comment", Bpm: 127, MediaType: MediaTypeSong, MusicBrainzId: "4321",
+					Comment: "a comment", Bpm: 127, MediaType: MediaTypeSong, MusicBrainzId: "4321", ChannelCount: 2,
+					SamplingRate: 44100, SortName: "sorted title",
 					ReplayGain: ReplayGain{TrackGain: 1, AlbumGain: 2, TrackPeak: 3, AlbumPeak: 4, BaseGain: 5, FallbackGain: 6},
 				}
 				response.Directory.Child = child
@@ -176,8 +177,9 @@ var _ = Describe("Responses", func() {
 					Id: "1", Name: "album", Artist: "artist", Genre: "rock",
 					Genres:        []ItemGenre{{Name: "rock"}, {Name: "progressive"}},
 					MusicBrainzId: "1234", IsCompilation: true, SortName: "sorted album",
-					DiscTitles:          DiscTitles{{Disc: 1, Title: "disc 1"}, {Disc: 2, Title: "disc 2"}},
+					DiscTitles:          DiscTitles{{Disc: 1, Title: "disc 1"}, {Disc: 2, Title: "disc 2"}, {Disc: 3}},
 					OriginalReleaseDate: ItemDate{Year: 1994, Month: 2, Day: 4},
+					ReleaseDate:         ItemDate{Year: 2000, Month: 5, Day: 10},
 				}
 				t := time.Date(2016, 03, 2, 20, 30, 0, 0, time.UTC)
 				songs := []Child{{

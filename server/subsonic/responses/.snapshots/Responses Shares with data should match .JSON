@@ -22,7 +22,9 @@
             "mediaType": "",
             "musicBrainzId": "",
             "genres": [],
-            "replayGain": {}
+            "replayGain": {},
+            "channelCount": 0,
+            "samplingRate": 0
           },
           {
             "id": "2",
@@ -38,7 +40,9 @@
             "mediaType": "",
             "musicBrainzId": "",
             "genres": [],
-            "replayGain": {}
+            "replayGain": {},
+            "channelCount": 0,
+            "samplingRate": 0
           }
         ],
         "id": "ABC123",

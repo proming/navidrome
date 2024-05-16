@@ -42,6 +42,10 @@ func loggedUser(ctx context.Context) *model.User {
 	}
 }
 
+func (r sqlRepository) getTableName() string {
+	return r.tableName
+}
+
 func (r sqlRepository) newSelect(options ...model.QueryOptions) SelectBuilder {
 	sq := Select().From(r.tableName)
 	sq = r.applyOptions(sq, options...)
@@ -64,12 +68,23 @@ func (r sqlRepository) applyOptions(sq SelectBuilder, options ...model.QueryOpti
 	return sq
 }
 
-func (r sqlRepository) buildSortOrder(sort, order string) string {
+// TODO Change all sortMappings to have a consistent case
+func (r sqlRepository) sortMapping(sort string) string {
 	if mapping, ok := r.sortMappings[sort]; ok {
-		sort = mapping
+		return mapping
 	}
-
+	if mapping, ok := r.sortMappings[toCamelCase(sort)]; ok {
+		return mapping
+	}
 	sort = toSnakeCase(sort)
+	if mapping, ok := r.sortMappings[sort]; ok {
+		return mapping
+	}
+	return sort
+}
+
+func (r sqlRepository) buildSortOrder(sort, order string) string {
+	sort = r.sortMapping(sort)
 	order = strings.ToLower(strings.TrimSpace(order))
 	var reverseOrder string
 	if order == "desc" {
@@ -157,8 +172,6 @@ func (r sqlRepository) toSQL(sq Sqlizer) (string, dbx.Params, error) {
 	return query, params, nil
 }
 
-// Note: Due to a bug in the QueryRow method, this function does not map any embedded structs (ex: annotations)
-// In this case, use the queryAll method and get the first item of the returned list
 func (r sqlRepository) queryOne(sq Sqlizer, response interface{}) error {
 	query, args, err := r.toSQL(sq)
 	if err != nil {
