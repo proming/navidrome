@@ -13,7 +13,7 @@ import (
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
-	"github.com/navidrome/navidrome/utils"
+	"github.com/navidrome/navidrome/utils/str"
 	"github.com/pocketbase/dbx"
 )
 
@@ -68,9 +68,9 @@ func (r *mediaFileRepository) Exists(id string) (bool, error) {
 }
 
 func (r *mediaFileRepository) Put(m *model.MediaFile) error {
-	m.FullText = getFullText(m.Title, m.Album, utils.SplitAndJoinStrings(m.Artist), utils.SplitAndJoinStrings(m.AlbumArtist),
-		m.SortTitle, m.SortAlbumName, utils.SplitAndJoinStrings(m.SortArtistName), utils.SplitAndJoinStrings(m.SortAlbumArtistName), m.DiscSubtitle)
-	m.AllArtistIDs = utils.SanitizeStrings(strings.ReplaceAll(m.ArtistID, "/", " "), strings.ReplaceAll(m.AlbumArtistID, "/", " "))
+	m.FullText = getFullText(m.Title, m.Album, str.SplitAndJoinStrings(m.Artist), str.SplitAndJoinStrings(m.AlbumArtist),
+		m.SortTitle, m.SortAlbumName, str.SplitAndJoinStrings(m.SortArtistName), str.SplitAndJoinStrings(m.SortAlbumArtistName), m.DiscSubtitle)
+	m.AllArtistIDs = str.SanitizeStrings(strings.ReplaceAll(m.ArtistID, "/", " "), strings.ReplaceAll(m.AlbumArtistID, "/", " "))
 	_, err := r.put(m.ID, m)
 	if err != nil {
 		return err

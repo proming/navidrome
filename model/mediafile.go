@@ -192,7 +192,7 @@ func (mfs MediaFiles) ToAlbum() Album {
 	a = fixAlbumArtist(a, albumArtistIds)
 	songArtistIds = append(songArtistIds, a.AlbumArtistID, a.ArtistID)
 	slices.Sort(songArtistIds)
-	a.AllArtistIDs = utils.SanitizeStrings(strings.ReplaceAll(strings.Join(songArtistIds, " "), "/", " "))
+	a.AllArtistIDs = str.SanitizeStrings(strings.ReplaceAll(strings.Join(songArtistIds, " "), "/", " "))
 	a.MbzAlbumID = slice.MostFrequent(mbzAlbumIds)
 
 	return a
