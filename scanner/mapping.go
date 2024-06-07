@@ -12,7 +12,7 @@ import (
 	"github.com/navidrome/navidrome/consts"
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/scanner/metadata"
-	"github.com/navidrome/navidrome/utils"
+	"github.com/navidrome/navidrome/utils/str"
 )
 
 type MediaFileMapper struct {
@@ -57,10 +57,10 @@ func (s MediaFileMapper) ToMediaFile(md metadata.Tags) model.MediaFile {
 	mf.SortAlbumName = md.SortAlbum()
 	mf.SortArtistName = md.SortArtist()
 	mf.SortAlbumArtistName = md.SortAlbumArtist()
-	mf.OrderTitle = utils.SanitizeFieldForSorting(mf.Title)
-	mf.OrderAlbumName = utils.SanitizeFieldForSortingNoArticle(mf.Album)
-	mf.OrderArtistName = utils.SanitizeFieldForSortingNoArticle(utils.SplitAndJoinStrings(mf.Artist))
-	mf.OrderAlbumArtistName = utils.SanitizeFieldForSortingNoArticle(utils.SplitAndJoinStrings(mf.AlbumArtist))
+	mf.OrderTitle = str.SanitizeFieldForSorting(mf.Title)
+	mf.OrderAlbumName = str.SanitizeFieldForSortingNoArticle(mf.Album)
+	mf.OrderArtistName = str.SanitizeFieldForSortingNoArticle(str.SplitAndJoinStrings(mf.Artist))
+	mf.OrderAlbumArtistName = str.SanitizeFieldForSortingNoArticle(str.SplitAndJoinStrings(mf.AlbumArtist))
 	mf.CatalogNum = md.CatalogNum()
 	mf.MbzRecordingID = md.MbzRecordingID()
 	mf.MbzReleaseTrackID = md.MbzReleaseTrackID()
@@ -73,7 +73,7 @@ func (s MediaFileMapper) ToMediaFile(md metadata.Tags) model.MediaFile {
 	mf.RgAlbumPeak = md.RGAlbumPeak()
 	mf.RgTrackGain = md.RGTrackGain()
 	mf.RgTrackPeak = md.RGTrackPeak()
-	mf.Comment = utils.SanitizeText(md.Comment())
+	mf.Comment = str.SanitizeText(md.Comment())
 	mf.Lyrics = md.Lyrics()
 	mf.Bpm = md.Bpm()
 	mf.CreatedAt = md.BirthTime()

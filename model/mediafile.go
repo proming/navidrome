@@ -12,8 +12,8 @@ import (
 
 	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/consts"
-	"github.com/navidrome/navidrome/utils"
 	"github.com/navidrome/navidrome/utils/slice"
+	"github.com/navidrome/navidrome/utils/str"
 )
 
 type MediaFile struct {
@@ -188,7 +188,7 @@ func (mfs MediaFiles) ToAlbum() Album {
 	a.Genre = slice.MostFrequent(a.Genres).Name
 	slices.SortFunc(a.Genres, func(a, b Genre) int { return cmp.Compare(a.ID, b.ID) })
 	a.Genres = slices.Compact(a.Genres)
-	a.FullText = " " + utils.SanitizeStrings(fullText...)
+	a.FullText = " " + str.SanitizeStrings(fullText...)
 	a = fixAlbumArtist(a, albumArtistIds)
 	songArtistIds = append(songArtistIds, a.AlbumArtistID, a.ArtistID)
 	slices.Sort(songArtistIds)
@@ -199,15 +199,12 @@ func (mfs MediaFiles) ToAlbum() Album {
 }
 
 func allOrNothing(items []string) (string, int) {
+	sort.Strings(items)
 	items = slices.Compact(items)
-	if len(items) == 1 {
-		return items[0], 1
-	}
-	if len(items) > 1 {
-		sort.Strings(items)
+	if len(items) != 1 {
 		return "", len(slices.Compact(items))
 	}
-	return "", 0
+	return items[0], 1
 }
 
 func minMax(items []int) (int, int) {
