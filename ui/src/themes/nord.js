@@ -1,3 +1,5 @@
+import stylesheet from './nord.css.js'
+
 // For Album, Playlist
 const musicListActions = {
   alignItems: 'center',
@@ -425,6 +427,6 @@ export default {
   },
   player: {
     theme: 'dark',
-    stylesheet: require('./nord.css.js'),
+    stylesheet,
   },
 }

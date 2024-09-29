@@ -1,3 +1,5 @@
+import stylesheet from './light.css.js'
+
 export default {
   themeName: 'Light',
   palette: {
@@ -60,6 +62,6 @@ export default {
   },
   player: {
     theme: 'light',
-    stylesheet: require('./light.css.js'),
+    stylesheet,
   },
 }

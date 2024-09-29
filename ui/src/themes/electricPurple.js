@@ -1,3 +1,5 @@
+import stylesheet from './electricPurple.css.js'
+
 export default {
   themeName: 'Electric Purple',
   palette: {
@@ -55,6 +57,6 @@ export default {
   },
   player: {
     theme: 'dark',
-    stylesheet: require('./electricPurple.css.js'),
+    stylesheet,
   },
 }
