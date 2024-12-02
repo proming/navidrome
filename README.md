@@ -9,6 +9,7 @@
 [![Dev Chat](https://img.shields.io/discord/671335427726114836?logo=discord&label=discord&style=flat-square)](https://discord.gg/xh7j7yF)
 [![Subreddit](https://img.shields.io/reddit/subreddit-subscribers/navidrome?logo=reddit&label=/r/navidrome&style=flat-square)](https://www.reddit.com/r/navidrome/)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0-ff69b4.svg?style=flat-square)](CODE_OF_CONDUCT.md)
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Navidrome%20Guru-006BFF?style=flat-square)](https://gurubase.io/g/navidrome)
 
 Navidrome is an open source web-based music collection server and streamer. It gives you freedom to listen to your
 music collection from any browser or mobile device. It's like your personal Spotify!
@@ -55,6 +56,15 @@ A share of the revenue helps fund the development of Navidrome at no additional 
  - **Compatible** with all Subsonic/Madsonic/Airsonic [clients](https://www.navidrome.org/docs/overview/#apps)
  - **Transcoding** on the fly. Can be set per user/player. **Opus encoding is supported**
  - Translated to **various languages**
+
+## Translations
+
+Navidrome uses [POEditor](https://poeditor.com/) for translations, and we are always looking 
+for [more contributors](https://www.navidrome.org/docs/developers/translations/)
+
+<a href="https://poeditor.com/"> 
+<img height="32" src="https://github.com/user-attachments/assets/c19b1d2b-01e1-4682-a007-12356c42147c">
+</a>
 
 ## Documentation
 All documentation can be found in the project's website: https://www.navidrome.org/docs. 

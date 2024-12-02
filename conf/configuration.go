@@ -26,6 +26,7 @@ type configOptions struct {
 	CacheFolder                     string
 	DbPath                          string
 	LogLevel                        string
+	LogFile                         string
 	ScanInterval                    time.Duration
 	ScanSchedule                    string
 	SessionTimeout                  time.Duration
@@ -87,6 +88,7 @@ type configOptions struct {
 	Prometheus                      prometheusOptions
 	Scanner                         scannerOptions
 	Jukebox                         jukeboxOptions
+	Backup                          backupOptions
 	ArtistsSeparator                string
 
 	Agents       string
@@ -101,6 +103,7 @@ type configOptions struct {
 	DevAutoCreateAdminPassword       string
 	DevAutoLoginUsername             string
 	DevActivityPanel                 bool
+	DevActivityPanelUpdateRate       time.Duration
 	DevSidebarPlaylists              bool
 	DevEnableBufferedScrobble        bool
 	DevShowArtistPage                bool
@@ -153,6 +156,12 @@ type jukeboxOptions struct {
 	AdminOnly bool
 }
 
+type backupOptions struct {
+	Count    int
+	Path     string
+	Schedule string
+}
+
 var (
 	Server = &configOptions{}
 	hooks  []func()
@@ -169,14 +178,17 @@ func LoadFromFile(confFile string) {
 }
 
 func Load() {
+	parseIniFileConfiguration()
+
 	err := viper.Unmarshal(&Server)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error parsing config:", err)
 		os.Exit(1)
 	}
+
 	err = os.MkdirAll(Server.DataFolder, os.ModePerm)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error creating data path:", "path", Server.DataFolder, err)
+		_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error creating data path:", err)
 		os.Exit(1)
 	}
 
@@ -185,13 +197,31 @@ func Load() {
 	}
 	err = os.MkdirAll(Server.CacheFolder, os.ModePerm)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error creating cache path:", "path", Server.CacheFolder, err)
+		_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error creating cache path:", err)
 		os.Exit(1)
 	}
 
 	Server.ConfigFile = viper.GetViper().ConfigFileUsed()
 	if Server.DbPath == "" {
 		Server.DbPath = filepath.Join(Server.DataFolder, consts.DefaultDbPath)
+	}
+
+	if Server.Backup.Path != "" {
+		err = os.MkdirAll(Server.Backup.Path, os.ModePerm)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error creating backup path:", err)
+			os.Exit(1)
+		}
+	}
+
+	out := os.Stderr
+	if Server.LogFile != "" {
+		out, err = os.OpenFile(Server.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "FATAL: Error opening log file %s: %s\n", Server.LogFile, err.Error())
+			os.Exit(1)
+		}
+		log.SetOutput(out)
 	}
 
 	log.SetLevelString(Server.LogLevel)
@@ -203,10 +233,14 @@ func Load() {
 		os.Exit(1)
 	}
 
+	if err := validateBackupSchedule(); err != nil {
+		os.Exit(1)
+	}
+
 	if Server.BaseURL != "" {
 		u, err := url.Parse(Server.BaseURL)
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "FATAL: Invalid BaseURL %s: %s\n", Server.BaseURL, err.Error())
+			_, _ = fmt.Fprintln(os.Stderr, "FATAL: Invalid BaseURL:", err)
 			os.Exit(1)
 		}
 		Server.BasePath = u.Path
@@ -222,7 +256,7 @@ func Load() {
 		if Server.EnableLogRedacting {
 			prettyConf = log.Redact(prettyConf)
 		}
-		_, _ = fmt.Fprintln(os.Stderr, prettyConf)
+		_, _ = fmt.Fprintln(out, prettyConf)
 	}
 
 	if !Server.EnableExternalServices {
@@ -232,6 +266,31 @@ func Load() {
 	// Call init hooks
 	for _, hook := range hooks {
 		hook()
+	}
+}
+
+// parseIniFileConfiguration is used to parse the config file when it is in INI format. For INI files, it
+// would require a nested structure, so instead we unmarshal it to a map and then merge the nested [default]
+// section into the root level.
+func parseIniFileConfiguration() {
+	cfgFile := viper.ConfigFileUsed()
+	if strings.ToLower(filepath.Ext(cfgFile)) == ".ini" {
+		var iniConfig map[string]interface{}
+		err := viper.Unmarshal(&iniConfig)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error parsing config:", err)
+			os.Exit(1)
+		}
+		cfg, ok := iniConfig["default"].(map[string]any)
+		if !ok {
+			_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error parsing config: missing [default] section:", iniConfig)
+			os.Exit(1)
+		}
+		err = viper.MergeConfigMap(cfg)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "FATAL: Error parsing config:", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -264,15 +323,35 @@ func validateScanSchedule() error {
 		Server.ScanSchedule = ""
 		return nil
 	}
-	if _, err := time.ParseDuration(Server.ScanSchedule); err == nil {
-		Server.ScanSchedule = "@every " + Server.ScanSchedule
+	var err error
+	Server.ScanSchedule, err = validateSchedule(Server.ScanSchedule, "ScanSchedule")
+	return err
+}
+
+func validateBackupSchedule() error {
+	if Server.Backup.Path == "" || Server.Backup.Schedule == "" || Server.Backup.Count == 0 {
+		Server.Backup.Schedule = ""
+		return nil
+	}
+
+	var err error
+	Server.Backup.Schedule, err = validateSchedule(Server.Backup.Schedule, "BackupSchedule")
+
+	return err
+}
+
+func validateSchedule(schedule, field string) (string, error) {
+	if _, err := time.ParseDuration(schedule); err == nil {
+		schedule = "@every " + schedule
 	}
 	c := cron.New()
-	_, err := c.AddFunc(Server.ScanSchedule, func() {})
+	id, err := c.AddFunc(schedule, func() {})
 	if err != nil {
-		log.Error("Invalid ScanSchedule. Please read format spec at https://pkg.go.dev/github.com/robfig/cron#hdr-CRON_Expression_Format", "schedule", Server.ScanSchedule, err)
+		log.Error(fmt.Sprintf("Invalid %s. Please read format spec at https://pkg.go.dev/github.com/robfig/cron#hdr-CRON_Expression_Format", field), "schedule", field, err)
+	} else {
+		c.Remove(id)
 	}
-	return err
+	return schedule, err
 }
 
 // AddHook is used to register initialization code that should run as soon as the config is loaded
@@ -285,6 +364,7 @@ func init() {
 	viper.SetDefault("cachefolder", "")
 	viper.SetDefault("datafolder", ".")
 	viper.SetDefault("loglevel", "info")
+	viper.SetDefault("logfile", "")
 	viper.SetDefault("address", "0.0.0.0")
 	viper.SetDefault("port", 4533)
 	viper.SetDefault("unixsocketperm", "0660")
@@ -367,12 +447,17 @@ func init() {
 
 	viper.SetDefault("httpsecurityheaders.customframeoptionsvalue", "DENY")
 
+	viper.SetDefault("backup.path", "")
+	viper.SetDefault("backup.schedule", "")
+	viper.SetDefault("backup.count", 0)
+
 	// DevFlags. These are used to enable/disable debugging and incomplete features
 	viper.SetDefault("devlogsourceline", false)
 	viper.SetDefault("devenableprofiler", false)
 	viper.SetDefault("devautocreateadminpassword", "")
 	viper.SetDefault("devautologinusername", "")
 	viper.SetDefault("devactivitypanel", true)
+	viper.SetDefault("devactivitypanelupdaterate", 300*time.Millisecond)
 	viper.SetDefault("enablesharing", false)
 	viper.SetDefault("shareurl", "")
 	viper.SetDefault("defaultdownloadableshare", false)

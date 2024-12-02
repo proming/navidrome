@@ -38,7 +38,6 @@ type Album struct {
 	Discs                 Discs      `structs:"discs" json:"discs,omitempty"`
 	FullText              string     `structs:"full_text" json:"-"`
 	SortAlbumName         string     `structs:"sort_album_name" json:"sortAlbumName,omitempty"`
-	SortArtistName        string     `structs:"sort_artist_name" json:"sortArtistName,omitempty"`
 	SortAlbumArtistName   string     `structs:"sort_album_artist_name" json:"sortAlbumArtistName,omitempty"`
 	OrderAlbumName        string     `structs:"order_album_name" json:"orderAlbumName"`
 	OrderAlbumArtistName  string     `structs:"order_album_artist_name" json:"orderAlbumArtistName"`
@@ -85,7 +84,7 @@ type Albums []Album
 // It assumes all albums have the same AlbumArtist, or else results are unpredictable.
 func (als Albums) ToAlbumArtist() Artist {
 	a := Artist{AlbumCount: len(als)}
-	var mbzArtistIds []string
+	mbzArtistIds := make([]string, 0, len(als))
 	for _, al := range als {
 		a.ID = al.AlbumArtistID
 		a.Name = al.AlbumArtist

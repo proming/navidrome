@@ -10,7 +10,6 @@ import (
 
 	. "github.com/Masterminds/squirrel"
 	"github.com/deluan/rest"
-	"github.com/navidrome/navidrome/conf"
 	"github.com/navidrome/navidrome/log"
 	"github.com/navidrome/navidrome/model"
 	"github.com/navidrome/navidrome/utils/str"
@@ -33,25 +32,14 @@ func NewMediaFileRepository(ctx context.Context, db dbx.Builder) *mediaFileRepos
 		"album_artist_id": albumArtistFilter,
 		"genre_id":        eqFilter,
 	})
-	if conf.Server.PreferSortTags {
-		r.sortMappings = map[string]string{
-			"title":      "COALESCE(NULLIF(sort_title,''),order_title)",
-			"artist":     "COALESCE(NULLIF(sort_artist_name,''),order_artist_name) asc, COALESCE(NULLIF(sort_album_name,''),order_album_name) asc, release_date asc, disc_number asc, track_number asc",
-			"album":      "COALESCE(NULLIF(sort_album_name,''),order_album_name) asc, release_date asc, disc_number asc, track_number asc, COALESCE(NULLIF(sort_artist_name,''),order_artist_name) asc, COALESCE(NULLIF(sort_title,''),title) asc",
-			"random":     "random",
-			"created_at": "media_file.created_at",
-			"starred_at": "starred, starred_at",
-		}
-	} else {
-		r.sortMappings = map[string]string{
-			"title":      "order_title",
-			"artist":     "order_artist_name asc, order_album_name asc, release_date asc, disc_number asc, track_number asc",
-			"album":      "order_album_name asc, release_date asc, disc_number asc, track_number asc, order_artist_name asc, title asc",
-			"random":     "random",
-			"created_at": "media_file.created_at",
-			"starred_at": "starred, starred_at",
-		}
-	}
+	r.setSortMappings(map[string]string{
+		"title":      "order_title",
+		"artist":     "order_artist_name, order_album_name, release_date, disc_number, track_number",
+		"album":      "order_album_name, release_date, disc_number, track_number, order_artist_name, title",
+		"random":     "random",
+		"created_at": "media_file.created_at",
+		"starred_at": "starred, starred_at",
+	})
 	return r
 }
 
@@ -164,18 +152,6 @@ func (r *mediaFileRepository) QueryAll(ids []string, response interface{}) error
 	mf.rg_album_gain, mf.rg_album_peak, mf.rg_track_gain, mf.rg_track_peak, mf.all_artist_ids
 	`).From("media_file mf").LeftJoin("media_file_artist_list mfa on mf.id=mfa.media_file_id").Where(Eq{"mfa.artist_id": ids})
 	return r.queryAll(sel, response)
-}
-
-func (r *mediaFileRepository) FindByPath(path string) (*model.MediaFile, error) {
-	sel := r.newSelect().Columns("*").Where(Like{"path": path})
-	var res model.MediaFiles
-	if err := r.queryAll(sel, &res); err != nil {
-		return nil, err
-	}
-	if len(res) == 0 {
-		return nil, model.ErrNotFound
-	}
-	return &res[0], nil
 }
 
 func (r *mediaFileRepository) FindByPaths(paths []string) (model.MediaFiles, error) {

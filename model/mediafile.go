@@ -109,11 +109,9 @@ type MediaFiles []MediaFile
 
 // Dirs returns a deduped list of all directories from the MediaFiles' paths
 func (mfs MediaFiles) Dirs() []string {
-	var dirs []string
-	for _, mf := range mfs {
-		dir, _ := filepath.Split(mf.Path)
-		dirs = append(dirs, filepath.Clean(dir))
-	}
+	dirs := slice.Map(mfs, func(m MediaFile) string {
+		return filepath.Dir(m.Path)
+	})
 	slices.Sort(dirs)
 	return slices.Compact(dirs)
 }
@@ -122,16 +120,16 @@ func (mfs MediaFiles) Dirs() []string {
 // It assumes all mediafiles have the same Album, or else results are unpredictable.
 func (mfs MediaFiles) ToAlbum() Album {
 	a := Album{SongCount: len(mfs)}
-	var fullText []string
-	var albumArtistIds []string
-	var songArtistIds []string
-	var mbzAlbumIds []string
-	var comments []string
-	var years []int
-	var dates []string
-	var originalYears []int
-	var originalDates []string
-	var releaseDates []string
+	fullText := make([]string, 0, len(mfs))
+	albumArtistIds := make([]string, 0, len(mfs))
+	songArtistIds := make([]string, 0, len(mfs))
+	mbzAlbumIds := make([]string, 0, len(mfs))
+	comments := make([]string, 0, len(mfs))
+	years := make([]int, 0, len(mfs))
+	dates := make([]string, 0, len(mfs))
+	originalYears := make([]int, 0, len(mfs))
+	originalDates := make([]string, 0, len(mfs))
+	releaseDates := make([]string, 0, len(mfs))
 	for _, m := range mfs {
 		// We assume these attributes are all the same for all songs on an album
 		a.ID = m.AlbumID
@@ -141,7 +139,6 @@ func (mfs MediaFiles) ToAlbum() Album {
 		a.AlbumArtist = m.AlbumArtist
 		a.AlbumArtistID = m.AlbumArtistID
 		a.SortAlbumName = m.SortAlbumName
-		a.SortArtistName = m.SortArtistName
 		a.SortAlbumArtistName = m.SortAlbumArtistName
 		a.OrderAlbumName = m.OrderAlbumName
 		a.OrderAlbumArtistName = m.OrderAlbumArtistName
@@ -288,11 +285,10 @@ type MediaFileRepository interface {
 	QueryAll(sel []string, response interface{}) error
 	Search(q string, offset int, size int) (MediaFiles, error)
 	Delete(id string) error
+	FindByPaths(paths []string) (MediaFiles, error)
 
 	// Queries by path to support the scanner, no Annotations or Bookmarks required in the response
 	FindAllByPath(path string) (MediaFiles, error)
-	FindByPath(path string) (*MediaFile, error)
-	FindByPaths(paths []string) (MediaFiles, error)
 	FindPathsRecursively(basePath string) ([]string, error)
 	DeleteByPath(path string) (int64, error)
 

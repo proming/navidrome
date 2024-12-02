@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"strings"
@@ -37,7 +36,7 @@ Complete documentation is available at https://www.navidrome.org/docs`,
 			preRun()
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runNavidrome()
+			runNavidrome(cmd.Context())
 		},
 		PostRun: func(cmd *cobra.Command, args []string) {
 			postRun()
@@ -50,8 +49,7 @@ Complete documentation is available at https://www.navidrome.org/docs`,
 func Execute() {
 	rootCmd.SetVersionTemplate(`{{println .Version}}`)
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
 
@@ -69,10 +67,10 @@ func postRun() {
 // runNavidrome is the main entry point for the Navidrome server. It starts all the services and blocks.
 // If any of the services returns an error, it will log it and exit. If the process receives a signal to exit,
 // it will cancel the context and exit gracefully.
-func runNavidrome() {
+func runNavidrome(ctx context.Context) {
 	defer db.Init()()
 
-	ctx, cancel := mainContext()
+	ctx, cancel := mainContext(ctx)
 	defer cancel()
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -81,6 +79,7 @@ func runNavidrome() {
 	g.Go(startScheduler(ctx))
 	g.Go(startPlaybackServer(ctx))
 	g.Go(schedulePeriodicScan(ctx))
+	g.Go(schedulePeriodicBackup(ctx))
 
 	if err := g.Wait(); err != nil {
 		log.Error("Fatal error in Navidrome. Aborting", err)
@@ -88,8 +87,8 @@ func runNavidrome() {
 }
 
 // mainContext returns a context that is cancelled when the process receives a signal to exit.
-func mainContext() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(),
+func mainContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(ctx,
 		os.Interrupt,
 		syscall.SIGHUP,
 		syscall.SIGTERM,
@@ -155,6 +154,41 @@ func schedulePeriodicScan(ctx context.Context) func() error {
 	}
 }
 
+func schedulePeriodicBackup(ctx context.Context) func() error {
+	return func() error {
+		schedule := conf.Server.Backup.Schedule
+		if schedule == "" {
+			log.Warn("Periodic backup is DISABLED")
+			return nil
+		}
+
+		schedulerInstance := scheduler.GetInstance()
+
+		log.Info("Scheduling periodic backup", "schedule", schedule)
+		err := schedulerInstance.Add(schedule, func() {
+			start := time.Now()
+			path, err := db.Backup(ctx)
+			elapsed := time.Since(start)
+			if err != nil {
+				log.Error(ctx, "Error backing up database", "elapsed", elapsed, err)
+				return
+			}
+			log.Info(ctx, "Backup complete", "elapsed", elapsed, "path", path)
+
+			count, err := db.Prune(ctx)
+			if err != nil {
+				log.Error(ctx, "Error pruning database", "error", err)
+			} else if count > 0 {
+				log.Info(ctx, "Successfully pruned old files", "count", count)
+			} else {
+				log.Info(ctx, "No backups pruned")
+			}
+		})
+
+		return err
+	}
+}
+
 // startScheduler starts the Navidrome scheduler, which is used to run periodic tasks.
 func startScheduler(ctx context.Context) func() error {
 	return func() error {
@@ -191,11 +225,13 @@ func init() {
 	rootCmd.PersistentFlags().String("datafolder", viper.GetString("datafolder"), "folder to store application data (DB), needs write access")
 	rootCmd.PersistentFlags().String("cachefolder", viper.GetString("cachefolder"), "folder to store cache data (transcoding, images...), needs write access")
 	rootCmd.PersistentFlags().StringP("loglevel", "l", viper.GetString("loglevel"), "log level, possible values: error, info, debug, trace")
+	rootCmd.PersistentFlags().String("logfile", viper.GetString("logfile"), "log file path, if not set logs will be printed to stderr")
 
 	_ = viper.BindPFlag("musicfolder", rootCmd.PersistentFlags().Lookup("musicfolder"))
 	_ = viper.BindPFlag("datafolder", rootCmd.PersistentFlags().Lookup("datafolder"))
 	_ = viper.BindPFlag("cachefolder", rootCmd.PersistentFlags().Lookup("cachefolder"))
 	_ = viper.BindPFlag("loglevel", rootCmd.PersistentFlags().Lookup("loglevel"))
+	_ = viper.BindPFlag("logfile", rootCmd.PersistentFlags().Lookup("logfile"))
 
 	rootCmd.Flags().StringP("address", "a", viper.GetString("address"), "IP address to bind to")
 	rootCmd.Flags().IntP("port", "p", viper.GetInt("port"), "HTTP port Navidrome will listen to")
